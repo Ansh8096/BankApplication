@@ -37,12 +37,16 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("This User is not found"));
     }
 
+    public Role findRoleByName(String roleName) {
+        return roleRepository.findByName(roleName)
+                .orElseThrow(() -> new RuntimeException("This role doesn't exists"));
+    }
+
     @Transactional
     public void saveNewUser(User user) {
         user.setKycStatus(false);
         // making sure if the role exists in the role table or not...
-        Role userRole = roleRepository.findByName("ROLE_USER")
-                .orElseThrow(() -> new RuntimeException("ROLE_USER not found"));
+        Role userRole = findRoleByName("ROLE_USER"); // this will return Role if present, else Throw an exception...
         user.getRoles().add(userRole);
         user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
         userRepository.save(user);
@@ -106,8 +110,9 @@ public class UserService {
 
     @Transactional
     public void assignRolesToTheUser(Long userId, String roleName) {
-        User user = userRepository.findByUserIdAndActiveTrue(userId).orElseThrow(() -> new RuntimeException("User not found"));
-        Role role = roleRepository.findByName(roleName).orElseThrow(() -> new RuntimeException("Role not found"));
+        User user = userRepository.findByUserIdAndActiveTrue(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Role role = findRoleByName(roleName); // this will return Role if present, else Throw an exception...
         user.getRoles().add(role);
         userRepository.save(user);
     }

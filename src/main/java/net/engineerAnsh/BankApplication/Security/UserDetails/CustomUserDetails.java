@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Adapter;
+package net.engineerAnsh.BankApplication.Security.UserDetails;
 
 import net.engineerAnsh.BankApplication.Entity.User;
 import org.springframework.security.core.GrantedAuthority;

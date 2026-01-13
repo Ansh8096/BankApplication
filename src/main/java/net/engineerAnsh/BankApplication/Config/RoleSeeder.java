@@ -3,7 +3,6 @@ package net.engineerAnsh.BankApplication.Config;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Repository.RoleRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -11,8 +10,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor // It allows (this.roleRepository = roleRepository)
 public class RoleSeeder implements CommandLineRunner {
 
-    @Autowired
-    private RoleRepository roleRepository;
+    private final RoleRepository roleRepository;
 
     // Implements CommandLineRunner Meaning:
     // This class will run once when the application starts (After Spring context is initialized).

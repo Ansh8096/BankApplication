@@ -21,7 +21,6 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
-
     private static final String not_owner_msg = "The account doesn't belong to the logged-in user";
 
     private String getEmailOfUser(){

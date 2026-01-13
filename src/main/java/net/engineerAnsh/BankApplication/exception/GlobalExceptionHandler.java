@@ -14,16 +14,20 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
 
     // Handling Access Denied (403)...
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<?> handleAccessDenied(AccessDeniedException e){
-        // Service throws AccessDeniedException...
-        // Controller does NOT catch it, This handler catches it (Client receives 403 Forbidden)...
+    public ResponseEntity<?> handleAccessDenied(AccessDeniedException e) {
+        // Service throws AccessDeniedException, Controller does NOT catch it, This handler catches it (Client receives 403 Forbidden)...
+        String message = null;
+        if (e.getMessage() == null || e.getMessage().isEmpty()) {
+            message = "You do not have permission to access this resource";
+        }
+        else message = e.getMessage();
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
-                .body(e.getMessage());
+                .body(message);
     }
 
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<?> handleRuntimeException(RuntimeException e){
+    public ResponseEntity<?> handleRuntimeException(RuntimeException e) {
         // Service throws RuntimeException...
         // Controller does NOT catch it, This handler catches it (Client receives 400 Forbidden)...
         return ResponseEntity
@@ -32,12 +36,13 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<?> handleUserNameNotFoundException(RuntimeException e){
+    public ResponseEntity<?> handleUserNameNotFoundException(RuntimeException e) {
         // Service throws RuntimeException...
         // Controller does NOT catch it, This handler catches it (Client receives 400 Forbidden)...
         return ResponseEntity
                 .badRequest()
                 .body(e.getMessage());
     }
+
 
 }

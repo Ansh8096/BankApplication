@@ -1,12 +1,13 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -20,6 +21,11 @@ public class UserController {
 
     private final UserService userService;
 
+    @GetMapping("/me")
+    public ResponseEntity<String> me() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return ResponseEntity.ok(auth.getName());
+    }
     @DeleteMapping("/delete-user")
     public ResponseEntity<?> deleteUser() {
         userService.softDeleteTheUserByEmail();

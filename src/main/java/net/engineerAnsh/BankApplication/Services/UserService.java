@@ -8,6 +8,7 @@ import net.engineerAnsh.BankApplication.Enum.AccountStatus;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.RoleRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -108,6 +109,7 @@ public class UserService {
         return accountRepository.findByUserEmail(email); // it returns : List<Account>
     }
 
+    @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     @Transactional
     public void assignRolesToTheUser(Long userId, String roleName) {
         User user = userRepository.findByUserIdAndActiveTrue(userId)

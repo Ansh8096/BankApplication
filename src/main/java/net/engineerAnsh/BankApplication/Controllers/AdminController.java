@@ -5,9 +5,12 @@ import net.engineerAnsh.BankApplication.Dto.AssignRoleRequest;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+
+@PreAuthorize("hasRole('ADMIN')")// hasRole("ADMIN") → ROLE_ADMIN → MATCH ✅ ...
 @RestController
 @RequestMapping("/admin")
 @RequiredArgsConstructor

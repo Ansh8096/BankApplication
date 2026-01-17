@@ -1,5 +1,6 @@
 package net.engineerAnsh.BankApplication.Services;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.Account;
@@ -13,6 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -21,19 +23,21 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    @Getter
     private static final String not_owner_msg = "The account doesn't belong to the logged-in user";
 
-    private String getEmailOfUser(){
+    public String getEmailOfLoggedInUser(){
         return SecurityContextHolder
                 .getContext()
                 .getAuthentication()
                 .getName(); // fetching the email of the user that logins...
     }
 
-    private Account generateAndCheckAccount(Long accountID) throws AccessDeniedException {
-        String email = getEmailOfUser();
-        Account account = accountRepository.findById(accountID)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+    // Use Only when we want to activate, block, close the account
+    public Account findNotClosedAccountAndValidate(String accountNumber) throws AccessDeniedException {
+        String email = getEmailOfLoggedInUser();
+        Account account = accountRepository.findByAccountNumberAndAccountStatusNot(accountNumber,AccountStatus.CLOSED)
+                .orElseThrow(() -> new RuntimeException("Account not found or is closed"));
         // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
         if (!account.getUser().getEmail().equals(email)) {
             log.error(not_owner_msg);
@@ -44,11 +48,16 @@ public class AccountService {
 
     @Transactional
     public Long saveNewAccount(Account newAccount) {
-        String email = getEmailOfUser();
+        String email = getEmailOfLoggedInUser();
 
         // Extracting the user if it exists...
         User user = userRepository.findByEmailAndActiveTrue(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Restriction for user who have age below 18...
+        if(newAccount.getAccountType() != AccountType.CHILD && user.getAge() < 18){
+            throw new RuntimeException("User below the age 18 are only allowed to create child account");
+        }
 
         // restriction for a child account...
         if (newAccount.getAccountType() == AccountType.CHILD && user.getAge() >= 18) {
@@ -71,13 +80,13 @@ public class AccountService {
         return savedAccount.getId();
     }
 
-    public Account getTheAccountById(Long accountID) throws AccessDeniedException {
-        return generateAndCheckAccount(accountID);
+    public Account getTheAccountByAccountNumber(String accountNumber) throws AccessDeniedException {
+        return findNotClosedAccountAndValidate(accountNumber);
     }
 
     @Transactional
-    public boolean blockTheAccountById(Long accountID) throws AccessDeniedException {
-        Account savedAccount = generateAndCheckAccount(accountID);
+    public boolean blockTheAccountByAccountNumber(String accountNumber) throws AccessDeniedException {
+        Account savedAccount = findNotClosedAccountAndValidate(accountNumber);
         if (savedAccount.getAccountStatus().equals(AccountStatus.BLOCKED)) {
             return false;
         }
@@ -87,9 +96,8 @@ public class AccountService {
     }
 
     @Transactional
-    public boolean activateTheAccountById(Long accountID) throws AccessDeniedException {
-        Account savedAccount = generateAndCheckAccount(accountID);
-
+    public boolean activateTheAccountByAccountNumber(String accountNumber) throws AccessDeniedException {
+        Account savedAccount = findNotClosedAccountAndValidate(accountNumber);
         if (savedAccount.getAccountStatus().equals(AccountStatus.ACTIVE)) {
             return false;
         }
@@ -99,14 +107,13 @@ public class AccountService {
     }
 
     @Transactional
-    public boolean closeTheAccountById(Long accountID) throws AccessDeniedException {
-        Account savedAccount = generateAndCheckAccount(accountID);
-
+    public boolean closeTheAccountByAccountNumber(String accountNumber) throws AccessDeniedException {
+        Account savedAccount = findNotClosedAccountAndValidate(accountNumber);
         if (savedAccount.getAccountStatus().equals(AccountStatus.CLOSED)) {
             return false;
         }
-
         savedAccount.setAccountStatus(AccountStatus.CLOSED);
+        savedAccount.setAccountClosedAt(LocalDateTime.now());
         accountRepository.save(savedAccount);
         return true;
     }

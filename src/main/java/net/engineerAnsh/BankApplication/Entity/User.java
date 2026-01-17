@@ -2,6 +2,7 @@ package net.engineerAnsh.BankApplication.Entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -27,6 +28,7 @@ public class User{
     private String name;
 
     @Column(name = "email", unique = true, nullable = false)
+    @Email
     private String email;
 
     @Column(name = "age",nullable = false)

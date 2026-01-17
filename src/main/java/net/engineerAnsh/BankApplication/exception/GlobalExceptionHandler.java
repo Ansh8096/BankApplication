@@ -36,8 +36,8 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<?> handleUserNameNotFoundException(RuntimeException e) {
-        // Service throws RuntimeException...
+    public ResponseEntity<?> handleUserNameNotFoundException(UsernameNotFoundException e) {
+        // Service throws UsernameNotFoundException...
         // Controller does NOT catch it, This handler catches it (Client receives 400 Forbidden)...
         return ResponseEntity
                 .badRequest()

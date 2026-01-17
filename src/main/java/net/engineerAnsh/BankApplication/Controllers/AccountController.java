@@ -26,28 +26,28 @@ public class AccountController {
             return ResponseEntity.created(locationOfThisAccount).build();
     }
 
-    @GetMapping("/get-account/{accountId}")
-    public ResponseEntity<?> getAccountById(@PathVariable Long accountId) throws AccessDeniedException {
-            return ResponseEntity.ok().body(accountService.getTheAccountById(accountId));
+    @GetMapping("/get-account/{accountNumber}")
+    public ResponseEntity<?> getAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
+            return ResponseEntity.ok().body(accountService.getTheAccountByAccountNumber(accountNumber));
     }
 
-    @PutMapping("/block/{accountId}")
-    public ResponseEntity<?> blockAccountById(@PathVariable Long accountId) throws AccessDeniedException {
-            boolean isBloocked = accountService.blockTheAccountById(accountId);
+    @PutMapping("/block/{accountNumber}")
+    public ResponseEntity<?> blockAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
+            boolean isBloocked = accountService.blockTheAccountByAccountNumber(accountNumber);
             if (isBloocked) return ResponseEntity.ok().build();
             else return ResponseEntity.ok().body("Account is already blocked");
     }
 
-    @PutMapping("/activate/{accountId}")
-    public ResponseEntity<?> activateAccountById(@PathVariable Long accountId) throws AccessDeniedException {
-            boolean isActivate = accountService.activateTheAccountById(accountId);
+    @PutMapping("/activate/{accountNumber}")
+    public ResponseEntity<?> activateAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
+            boolean isActivate = accountService.activateTheAccountByAccountNumber(accountNumber);
             if (isActivate) return ResponseEntity.ok().build();
             else return ResponseEntity.ok().body("Account is already activated");
     }
 
-    @PutMapping("/close/{accountId}")
-    public ResponseEntity<?> closeAccountById(@PathVariable Long accountId) throws AccessDeniedException {
-            boolean isClosed = accountService.closeTheAccountById(accountId);
+    @PutMapping("/close/{accountNumber}")
+    public ResponseEntity<?> closeAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
+            boolean isClosed = accountService.closeTheAccountByAccountNumber(accountNumber);
             if (isClosed) return ResponseEntity.ok().build();
             else return ResponseEntity.ok().body("Account is already closed");
     }

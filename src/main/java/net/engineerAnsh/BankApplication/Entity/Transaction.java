@@ -21,16 +21,20 @@ public class Transaction {
     public Long id;
 
     // Why '@JoinColumn' used here:-
-    // @JoinColumn is for relationships (foreign keys), (means we should use this, because 'toAccount' is a reference to another entity)...
-    // Since 'toAccount' is an object, not a simple value, we must use @JoinColumn...
+    // @JoinColumn is for relationships (foreign keys), (means we should use this, because 'fromAccount' is a reference to another entity)...
+    // Since 'fromAccount' is an object, not a simple value, we must use @JoinColumn...
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "from_account_id")
+    @JoinColumn(name = "from_account_number",
+            referencedColumnName = "account_number"
+    )
     private Account fromAccount;
 
     // Why @JoinColumn is CORRECT ?
-    // This tells JPA: “This field is a relationship. So Store the ID of Account in column to_account_id”...
+    // This tells JPA: “This field is a relationship. So Store the number of Account in column to_account_number”...
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "to_account_id")
+    @JoinColumn(name = "to_account_number",
+            referencedColumnName = "account_number"
+    )
     private Account toAccount;
 
     @Enumerated(EnumType.STRING)
@@ -52,7 +56,5 @@ public class Transaction {
 
     @Column(length = 250)
     private String remark;
-
-
 
 }

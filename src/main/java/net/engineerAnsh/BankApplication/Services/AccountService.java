@@ -41,7 +41,7 @@ public class AccountService {
         // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
         if (!account.getUser().getEmail().equals(email)) {
             log.error(not_owner_msg);
-            throw new AccessDeniedException("Not Allowed");
+            throw new AccessDeniedException(not_owner_msg);
         }
         return account;
     }

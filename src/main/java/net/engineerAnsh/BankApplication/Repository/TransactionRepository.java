@@ -9,9 +9,9 @@ public interface TransactionRepository extends JpaRepository<Transaction,Long> {
     // Spring Data JPA parses the method name and automatically creates a SQL query...
     // we will send accountId, and it will collect all the transactions.
     // that has same accountId in 'fromAccountId' or 'toAccountId' columns, then we will be collecting that transaction in the List...
-    List<Transaction> findByFromAccount_IdOrToAccount_Id(
-            Long fromId,
-            Long toId
+    List<Transaction> findByFromAccount_AccountNumberOrToAccount_AccountNumber(
+            String fromAccountNumber,
+            String toAccountNumber
     );
 }
 

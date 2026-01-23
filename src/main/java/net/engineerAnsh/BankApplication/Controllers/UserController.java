@@ -1,7 +1,6 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Services.UserService;
@@ -11,9 +10,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
-// it will also contain all the transaction Api's,getting account Statement,
-
-@Slf4j
 @RestController
 @RequestMapping("/user")
 @RequiredArgsConstructor

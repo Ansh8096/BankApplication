@@ -1,5 +1,6 @@
 package net.engineerAnsh.BankApplication.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import net.engineerAnsh.BankApplication.Enum.TransactionStatus;
@@ -27,6 +28,7 @@ public class Transaction {
     @JoinColumn(name = "from_account_number",
             referencedColumnName = "account_number"
     )
+    @JsonIgnore
     private Account fromAccount;
 
     // Why @JoinColumn is CORRECT ?
@@ -35,6 +37,7 @@ public class Transaction {
     @JoinColumn(name = "to_account_number",
             referencedColumnName = "account_number"
     )
+    @JsonIgnore
     private Account toAccount;
 
     @Enumerated(EnumType.STRING)

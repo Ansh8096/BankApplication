@@ -47,7 +47,7 @@ public class transactionController {
     public ResponseEntity<?> withdrawMoney(@RequestBody WithdrawRequest request) throws AccessDeniedException {
         transactionService.withdrawMoneyFromTheAccount(request.getAccountNo(),
                 request.getAmount(),
-                request.getRemark()
+                WithdrawRequest.getRemark()
         );
         return ResponseEntity.ok().body("withdraw successful");
     }

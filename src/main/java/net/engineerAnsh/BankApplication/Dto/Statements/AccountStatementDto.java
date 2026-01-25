@@ -19,10 +19,12 @@ public class AccountStatementDto {
     private String accountHolderName;
     private String maskedAccountNumber;
     private String accountType;
+    private String ifscCode;
 
     private LocalDate fromDate;
     private LocalDate toDate;
 
+    private BigDecimal openingBalance;
     private List<StatementRowDto> transactions;
     private BigDecimal closingBalance;
 

@@ -10,6 +10,6 @@ public class CurrencyUtil {
 
     public static String format(BigDecimal amount){
         NumberFormat formatter = NumberFormat.getCurrencyInstance(INDIA);
-        return formatter.format(amount);
+        return formatter.format(amount); // Result: ₹1,000.00
     }
 }

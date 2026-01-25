@@ -45,4 +45,14 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
     }
 
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> handleIllegalArgumentException(IllegalArgumentException e) {
+        // Service throws UsernameNotFoundException...
+        // Controller does NOT catch it, This handler catches it (Client receives 400 Forbidden)...
+        return ResponseEntity
+                .internalServerError()
+                .body(e.getMessage());
+    }
+
+
 }

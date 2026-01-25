@@ -22,4 +22,8 @@ public class StatementRowDto {
     private BigDecimal credit;
 
     private BigDecimal balance;
+
+    private String transactionReference;
+
+    private String transactionType;
 }

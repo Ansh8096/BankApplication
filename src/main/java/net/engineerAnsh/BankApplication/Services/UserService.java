@@ -1,6 +1,7 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import lombok.RequiredArgsConstructor;
+import net.engineerAnsh.BankApplication.Dto.SignupRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;
@@ -44,13 +45,26 @@ public class UserService {
     }
 
     @Transactional
-    public void saveNewUser(User user) {
-        user.setKycStatus(false);
+    public void saveNewUser(SignupRequest request) {
+
+        if(userRepository.existsByEmail(request.getEmail())){
+            throw new IllegalArgumentException("Email already registered");
+        }
         // making sure if the role exists in the role table or not...
         Role userRole = findRoleByName("ROLE_USER"); // this will return Role if present, else Throw an exception...
-        user.getRoles().add(userRole);
-        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
-        userRepository.save(user);
+
+        // Creating new user...
+        User newUser = new User();
+        newUser.setName(request.getName());
+        newUser.getRoles().add(userRole); // setting "ROLE_USER"...
+        newUser.setEmail(request.getEmail());
+        newUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        newUser.setAge(request.getAge());
+        newUser.setKycStatus(false);
+        newUser.setPhoneNumber(request.getPhone());
+
+        // Saving user in DB...
+        userRepository.save(newUser);
     }
 
     public List<User> getAllUsers() {

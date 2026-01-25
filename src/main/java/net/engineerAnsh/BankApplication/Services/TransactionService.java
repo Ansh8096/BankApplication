@@ -169,9 +169,8 @@ public class TransactionService {
         txn.setType(TransactionType.DEPOSIT);
         txn.setStatus(TransactionStatus.SUCCESS);
         txn.setAmount(amount);
-        if (remark != null && !remark.isEmpty()) {
-            txn.setRemark(remark);
-        }
+        String description = (remark != null && !remark.isEmpty()) ? remark : "Deposited money";
+        txn.setRemark(description);
 
         // save the transaction:
         transactionRepository.save(txn);
@@ -204,7 +203,7 @@ public class TransactionService {
         // Creating new transaction object to save the record in the table...
         Transaction txn = new Transaction();
         txn.setFromAccount(account);
-        txn.setType(TransactionType.WITHDRAWAL);
+        txn.setType(TransactionType.WITHDRAW);
         txn.setStatus(TransactionStatus.SUCCESS);
         txn.setAmount(amount);
         if (remark != null && !remark.isEmpty()) {
@@ -216,22 +215,6 @@ public class TransactionService {
 
         // save account:
         accountRepository.save(account);
-    }
-
-    @Transactional
-    public List<TransactionResponse> getTransactionsHistoryOfTheAccount(String accountNo) throws AccessDeniedException {
-        // Finding the active account via account number...
-        findActiveAccountAndValidate(accountNo); // We also checks if the account belongs to loggedIn user or not...
-
-        List<Transaction> transactionsList = transactionRepository.findByFromAccount_AccountNumberOrToAccount_AccountNumber( // it returns: List<Transaction>
-                accountNo,
-                accountNo
-        );
-
-        // Generating a structure response of transaction for the client...
-        return transactionsList.stream()
-                .map(this::mapToTransactionResponse)
-                .toList();
     }
 
 
@@ -267,8 +250,10 @@ public class TransactionService {
                 account.getUser().getName(),
                 AccountMaskingUtil.maskAccountNumber(accountNumber),
                 account.getAccountType().toString(),
+                account.getIfscCode(),
                 from,
                 to,
+                openingBalance,
                 statementRows,
                 statementRows.isEmpty()
                         ? openingBalance

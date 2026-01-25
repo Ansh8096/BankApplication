@@ -25,6 +25,9 @@ public class Account {
     @Column(name = "account_number",unique = true,nullable = false,length = 20)
     private String accountNumber;
 
+    @Column(name = "ifsc_code", nullable = false, length = 11)
+    private String ifscCode;
+
     @Column(name = "balance",nullable = false,
             precision = 19, // precision = digits_before_decimal + digits_after_decimal
             scale = 2) // This means: Exactly 2 digits after decimal
@@ -64,6 +67,9 @@ public class Account {
         }
         if(accountBalance == null){
             accountBalance = BigDecimal.ZERO;
+        }
+        if(ifscCode == null || ifscCode.isEmpty()){
+            ifscCode = "BOAN0000001";
         }
     }
 

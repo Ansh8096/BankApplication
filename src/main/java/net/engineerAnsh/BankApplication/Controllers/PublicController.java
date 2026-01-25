@@ -6,7 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.LoginRequest;
-import net.engineerAnsh.BankApplication.Entity.User;
+import net.engineerAnsh.BankApplication.Dto.SignupRequest;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import net.engineerAnsh.BankApplication.Security.Jwt.JwtUtils;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import javax.crypto.SecretKey;
+import java.net.URI;
 import java.util.List;
 
 @Slf4j
@@ -40,10 +41,12 @@ public class PublicController {
         return Encoders.BASE64.encode(key.getEncoded());
     }
 
-    @PutMapping("/signup")
-    public ResponseEntity<?> signUp(@RequestBody User user) {
-        userService.saveNewUser(user);
-        return ResponseEntity.ok().build();
+    @PostMapping("/signup")
+    public ResponseEntity<?> signUp(
+            @Valid @RequestBody SignupRequest request) { // // @Valid → checks validations (email not empty, password not empty)...
+        userService.saveNewUser(request);
+        URI locationOfUser = URI.create("/account/" + request.getEmail());
+        return ResponseEntity.created(locationOfUser).build();
     }
 
     // It checks the user’s email & password, creates a JWT token if they are correct, and sends the token back to the client...

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import net.engineerAnsh.BankApplication.Enum.TransactionStatus;
 import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Util.TransactionReferenceGenerator;
 import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,6 +21,15 @@ public class Transaction {
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     public Long id;
+
+    @Column(
+            name = "transaction_reference",
+            updatable = false,
+            nullable = false,
+            unique = true,
+            length = 30
+    )
+    private String transactionReference;
 
     // Why '@JoinColumn' used here:-
     // @JoinColumn is for relationships (foreign keys), (means we should use this, because 'fromAccount' is a reference to another entity)...
@@ -59,5 +69,14 @@ public class Transaction {
 
     @Column(length = 250)
     private String remark;
+
+    // If we want the transactionReference early we use this:
+    // If not then this method is fine
+    @PrePersist
+    public void prePersist(){
+        if(transactionReference == null || transactionReference.isEmpty()){
+            transactionReference = TransactionReferenceGenerator.generate();
+        }
+    }
 
 }

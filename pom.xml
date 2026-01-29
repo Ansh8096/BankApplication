@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>net.engineerAnsh</groupId>
-	<artifactId>BankApplication</artifactId>
+	<artifactId>BankApp</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>BankApplication</name>
 	<description>E2EE BankApp</description>
@@ -95,7 +95,10 @@
             <version>1.3.30</version>
         </dependency>
 
-
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
 
     </dependencies>
 

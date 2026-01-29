@@ -125,9 +125,8 @@ public class UserService {
 
     @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     @Transactional
-    public void assignRolesToTheUser(Long userId, String roleName) {
-        User user = userRepository.findByUserIdAndActiveTrue(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public void assignRolesToTheUser(String userEmail, String roleName) {
+        User user = findUser(userEmail);
         Role role = findRoleByName(roleName); // this will return Role if present, else Throw an exception...
         user.getRoles().add(role);
         userRepository.save(user);

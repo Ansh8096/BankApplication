@@ -1,5 +1,6 @@
 package net.engineerAnsh.BankApplication.exception;
 
+import jakarta.mail.MessagingException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -28,8 +29,6 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<?> handleRuntimeException(RuntimeException e) {
-        // Service throws RuntimeException...
-        // Controller does NOT catch it, This handler catches it (Client receives 400 Forbidden)...
         return ResponseEntity
                 .badRequest()
                 .body(e.getMessage());
@@ -37,18 +36,20 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
 
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<?> handleUserNameNotFoundException(UsernameNotFoundException e) {
-        // Service throws UsernameNotFoundException...
-        // Controller does NOT catch it, This handler catches it (Client receives 400 Forbidden)...
         return ResponseEntity
                 .badRequest()
                 .body(e.getMessage());
     }
 
-
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<?> handleIllegalArgumentException(IllegalArgumentException e) {
-        // Service throws UsernameNotFoundException...
-        // Controller does NOT catch it, This handler catches it (Client receives 400 Forbidden)...
+        return ResponseEntity
+                .internalServerError()
+                .body(e.getMessage());
+    }
+
+    @ExceptionHandler(MessagingException.class)
+    public ResponseEntity<?> handleMessagingException(MessagingException e) {
         return ResponseEntity
                 .internalServerError()
                 .body(e.getMessage());

@@ -1,5 +1,6 @@
 package net.engineerAnsh.BankApplication.Services;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
@@ -14,7 +15,6 @@ import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Util.AccountMaskingUtil;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -35,13 +35,13 @@ public class TransactionService {
 
     private Account findTheActiveAccount(String accountNumber) {
         return accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
-                .orElseThrow(() -> new UsernameNotFoundException("No active account found"));
+                .orElseThrow(() -> new EntityNotFoundException("No active account found"));
     }
 
     public Account findActiveAccountAndValidate(String accountNumber) throws AccessDeniedException {
         String email = accountService.getEmailOfLoggedInUser();
         Account account = accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
-                .orElseThrow(() -> new RuntimeException("Account not found or is not active"));
+                .orElseThrow(() -> new EntityNotFoundException("Account not found or is not active"));
         // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
         if (!account.getUser().getEmail().equals(email)) {
             log.error(AccountService.getNot_owner_msg());
@@ -50,6 +50,7 @@ public class TransactionService {
         return account;
     }
 
+    // I will be using this method when we want to fetch transaction by reference number...
     private TransactionResponse mapToTransactionResponse(Transaction txn) {
         // I'm able to set all the values in the constructor like this, because of the notations of constructors on 'TransactionResponse'...
         return new TransactionResponse(
@@ -73,7 +74,7 @@ public class TransactionService {
     private BigDecimal calculateOpeningBalanceForTransactions(
             String accountNumber,
             LocalDate from
-    ){
+    ) {
 
         List<Transaction> previousTransactionsBeforeDate = transactionRepository.findAllSuccessfulTransactionsBeforeDate(
                 accountNumber, from.atStartOfDay());
@@ -218,14 +219,12 @@ public class TransactionService {
     }
 
 
-    @Transactional(readOnly = true)
-    public AccountStatementDto generateStatement(
+    private AccountStatementDto generateStatementInternal(
+            Account account,
             String accountNumber,
             LocalDate from,
             LocalDate to
     ) {
-        // Validate account ownership...
-        Account account = findActiveAccountAndValidate(accountNumber);
 
         // Calculating the opening balance (accountBalance on that time),before from day...
         BigDecimal openingBalance = calculateOpeningBalanceForTransactions(accountNumber, from);
@@ -260,7 +259,38 @@ public class TransactionService {
                         : statementRows.get(statementRows.size() - 1).getBalance()
         );
     }
+
+    @Transactional(readOnly = true)
+    public AccountStatementDto generateStatement(
+            String accountNumber,
+            LocalDate from,
+            LocalDate to
+    ) {
+        // Validate account ownership (API use case)...
+        Account account = findActiveAccountAndValidate(accountNumber);
+
+        // Calling the internal implementation of the
+        return generateStatementInternal(account,accountNumber,from,to);
+    }
+
+    @Transactional(readOnly = true)
+    public AccountStatementDto generateMonthlyStatement(
+            String accountNumber,
+            LocalDate from,
+            LocalDate to
+    ) {
+        // NO ownership validation (scheduler use case)...
+        Account account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new EntityNotFoundException("An error occurred..."));
+        return generateStatementInternal(account,accountNumber,from,to);
+    }
 }
+
+
+
+
+
+
 
 
 // How 'compareTo()' works:-

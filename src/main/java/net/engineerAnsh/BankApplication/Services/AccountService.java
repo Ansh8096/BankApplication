@@ -47,7 +47,7 @@ public class AccountService {
     }
 
     @Transactional
-    public Long saveNewAccount(Account newAccount) {
+    public Long saveNewAccount(AccountType accountType) {
         String email = getEmailOfLoggedInUser();
 
         // Extracting the user if it exists...
@@ -55,21 +55,24 @@ public class AccountService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Restriction for user who have age below 18...
-        if(newAccount.getAccountType() != AccountType.CHILD && user.getAge() < 18){
+        if(accountType != AccountType.CHILD && user.getAge() < 18){
             throw new RuntimeException("User below the age 18 are only allowed to create child account");
         }
 
         // restriction for a child account...
-        if (newAccount.getAccountType() == AccountType.CHILD && user.getAge() >= 18) {
+        if (accountType == AccountType.CHILD && user.getAge() >= 18) {
             log.error("A customer must have age below then 18 to have an child account");
             throw new RuntimeException("Child account allowed only for users below 18");
         }
 
-        newAccount.setUser(user);
-        newAccount.setAccountNumber("TemporaryNumber");
+        Account account = new Account();
+
+        account.setAccountType(accountType);
+        account.setUser(user);
+        account.setAccountNumber("TemporaryNumber");
 
         // 1️. Saved first to get ID...
-        Account savedAccount = accountRepository.save(newAccount);
+        Account savedAccount = accountRepository.save(account);
 
         // 2️. Generating account number...
         String newAccountNumber = AccountNumberGenerator.generateAccountNumber(savedAccount);

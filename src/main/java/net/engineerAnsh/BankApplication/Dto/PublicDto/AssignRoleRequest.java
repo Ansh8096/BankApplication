@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Dto;
+package net.engineerAnsh.BankApplication.Dto.PublicDto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;

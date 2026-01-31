@@ -3,14 +3,11 @@ package net.engineerAnsh.BankApplication.Controllers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.engineerAnsh.BankApplication.Dto.CreateAccountDto;
-import net.engineerAnsh.BankApplication.Entity.Account;
+import net.engineerAnsh.BankApplication.Dto.Account.CreateAccountDto;
 import net.engineerAnsh.BankApplication.Services.AccountService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.net.URI;
-
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 

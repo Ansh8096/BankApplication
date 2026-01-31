@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Dto;
+package net.engineerAnsh.BankApplication.Dto.transaction;
 
 import lombok.*;
 import net.engineerAnsh.BankApplication.Enum.TransactionStatus;

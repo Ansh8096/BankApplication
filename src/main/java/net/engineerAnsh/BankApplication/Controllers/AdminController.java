@@ -1,7 +1,7 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Dto.AssignRoleRequest;
+import net.engineerAnsh.BankApplication.Dto.PublicDto.AssignRoleRequest;
 import net.engineerAnsh.BankApplication.Email.EmailServiceimpl;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Schedular.MonthlyStatementSchedular;

@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Util;
+package net.engineerAnsh.BankApplication.Utils;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;

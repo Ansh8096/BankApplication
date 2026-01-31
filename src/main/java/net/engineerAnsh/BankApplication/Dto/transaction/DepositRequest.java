@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Dto;
+package net.engineerAnsh.BankApplication.Dto.transaction;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9,18 +9,14 @@ import java.math.BigDecimal;
 
 @Getter
 @Setter
-public class TransferRequest {
+public class DepositRequest {
 
     @NotBlank
-    private String fromAccountNumber;
-
-    @NotBlank
-    private String toAccountNumber;
+    private String accountNo;
 
     @NotNull
     @Positive
     private BigDecimal amount;
 
     private String remark;
-
 }

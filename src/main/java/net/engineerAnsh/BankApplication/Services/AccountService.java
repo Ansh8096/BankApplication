@@ -9,7 +9,7 @@ import net.engineerAnsh.BankApplication.Enum.AccountStatus;
 import net.engineerAnsh.BankApplication.Enum.AccountType;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
-import net.engineerAnsh.BankApplication.Util.AccountNumberGenerator;
+import net.engineerAnsh.BankApplication.Utils.AccountNumberGenerator;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

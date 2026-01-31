@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Dto;
+package net.engineerAnsh.BankApplication.Dto.Account;
 
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;

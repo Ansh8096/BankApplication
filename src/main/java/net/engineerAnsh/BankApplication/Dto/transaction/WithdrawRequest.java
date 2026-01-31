@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Dto;
+package net.engineerAnsh.BankApplication.Dto.transaction;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 @Getter
 @Setter
-public class DepositRequest {
+public class WithdrawRequest {
 
     @NotBlank
     private String accountNo;
@@ -18,5 +18,6 @@ public class DepositRequest {
     @Positive
     private BigDecimal amount;
 
-    private String remark;
+    @Getter
+    private static final String remark = "ATM Withdrawal";
 }

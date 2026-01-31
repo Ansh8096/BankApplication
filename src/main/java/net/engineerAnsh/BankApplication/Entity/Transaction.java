@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import net.engineerAnsh.BankApplication.Enum.TransactionStatus;
 import net.engineerAnsh.BankApplication.Enum.TransactionType;
-import net.engineerAnsh.BankApplication.Util.TransactionReferenceGenerator;
+import net.engineerAnsh.BankApplication.Utils.TransactionReferenceGenerator;
 import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

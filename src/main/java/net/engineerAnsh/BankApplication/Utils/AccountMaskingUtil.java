@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Util;
+package net.engineerAnsh.BankApplication.Utils;
 
 public class AccountMaskingUtil {
 

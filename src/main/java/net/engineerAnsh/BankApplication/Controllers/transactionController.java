@@ -1,10 +1,10 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Dto.DepositRequest;
+import net.engineerAnsh.BankApplication.Dto.transaction.DepositRequest;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
-import net.engineerAnsh.BankApplication.Dto.TransferRequest;
-import net.engineerAnsh.BankApplication.Dto.WithdrawRequest;
+import net.engineerAnsh.BankApplication.Dto.transaction.TransferRequest;
+import net.engineerAnsh.BankApplication.Dto.transaction.WithdrawRequest;
 import net.engineerAnsh.BankApplication.Services.StatementPdfService;
 import net.engineerAnsh.BankApplication.Services.TransactionService;
 import org.springframework.format.annotation.DateTimeFormat;

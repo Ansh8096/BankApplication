@@ -3,7 +3,7 @@ package net.engineerAnsh.BankApplication.Services;
 import net.engineerAnsh.BankApplication.Dto.Statements.StatementRowDto;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
 import net.engineerAnsh.BankApplication.Enum.TransactionType;
-import net.engineerAnsh.BankApplication.Util.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.ArrayList;

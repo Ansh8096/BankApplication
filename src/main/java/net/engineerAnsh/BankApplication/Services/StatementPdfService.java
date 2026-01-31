@@ -8,7 +8,7 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
 import net.engineerAnsh.BankApplication.Dto.Statements.StatementRowDto;
-import net.engineerAnsh.BankApplication.Util.CurrencyUtil;
+import net.engineerAnsh.BankApplication.Utils.CurrencyUtil;
 import org.springframework.stereotype.Service;
 import java.awt.*;
 import java.io.ByteArrayOutputStream;

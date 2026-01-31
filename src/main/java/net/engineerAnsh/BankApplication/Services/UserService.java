@@ -1,7 +1,7 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Dto.SignupRequest;
+import net.engineerAnsh.BankApplication.Dto.PublicDto.SignupRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;

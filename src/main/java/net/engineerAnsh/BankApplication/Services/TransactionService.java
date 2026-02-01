@@ -32,6 +32,7 @@ public class TransactionService {
     private final AccountRepository accountRepository;
     private final AccountService accountService;
     private final StatementBuilder statementBuilder;
+    private final TransactionLimitService transactionLimitService;
 
     private Account findTheActiveAccount(String accountNumber) {
         return accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
@@ -122,10 +123,8 @@ public class TransactionService {
         Account from = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
         Account to = findTheActiveAccount(toAccountNo); // Verifying if the 'to' account exists or not...
 
-        // Throw error if the 'from' Account balance is low...
-        if (from.getAccountBalance().compareTo(amount) < 0) { // Why compareTo(), Because BigDecimal does not support '<'
-            throw new RuntimeException("Insufficient balance"); // use custom exception such as : 'InsufficientBalanceException'
-        }
+        // Throw exception if given 'amount' <= zero or exceeding the maximum transfer limit...
+        transactionLimitService.validatePerTransactionLimit(TransactionType.TRANSFER, amount);
 
         // debit amount from 'fromAccount'
         from.setAccountBalance(from.getAccountBalance().subtract(amount));
@@ -156,10 +155,8 @@ public class TransactionService {
         // Finding the active account via account number...
         Account account = findActiveAccountAndValidate(toAccountNo); // We also checks if the 'to' account belongs to loggedIn user or not...
 
-        // Throw exception if given amount is equal or smaller than zero...
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Invalid deposit amount");
-        }
+        // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
+        transactionLimitService.validatePerTransactionLimit(TransactionType.DEPOSIT, amount);
 
         // Update the balance...
         account.setAccountBalance(account.getAccountBalance().add(amount));
@@ -189,9 +186,8 @@ public class TransactionService {
         Account account = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
 
         // Throw exception if given amount is equal or smaller than zero...
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Invalid withdraw amount");
-        }
+        // Throw exception if given 'amount' <= zero or exceeding the maximum withdraw limit...
+        transactionLimitService.validatePerTransactionLimit(TransactionType.WITHDRAW, amount);
 
         // Throw exception if given amount is greater than the account balance...
         if (account.getAccountBalance().compareTo(amount) < 0) {

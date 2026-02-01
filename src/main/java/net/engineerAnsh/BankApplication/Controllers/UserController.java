@@ -22,13 +22,14 @@ public class UserController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return ResponseEntity.ok(auth.getName());
     }
+
     @DeleteMapping("/delete-user")
     public ResponseEntity<?> deleteUser() {
         userService.softDeleteTheUserByEmail();
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/update-user")
+    @PutMapping("/update-user")
     public ResponseEntity<?> updateUser(@RequestBody User user) {
         userService.updateTheUser(user);
         return ResponseEntity.ok().build();

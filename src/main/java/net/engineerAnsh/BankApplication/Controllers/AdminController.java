@@ -40,7 +40,7 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/email/send")
+    @PostMapping("/email/send")
     public ResponseEntity<?> sendEmail(
             @RequestParam("to") String to,
             @RequestParam("subject") String subject,

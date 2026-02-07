@@ -11,6 +11,8 @@ import net.engineerAnsh.BankApplication.Entity.Transaction;
 import net.engineerAnsh.BankApplication.Enum.AccountStatus;
 import net.engineerAnsh.BankApplication.Enum.TransactionStatus;
 import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
+import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
@@ -33,6 +35,7 @@ public class TransactionService {
     private final AccountService accountService;
     private final StatementBuilder statementBuilder;
     private final TransactionLimitService transactionLimitService;
+    private final TransactionEventProducer transactionEventProducer;
 
     private Account findTheActiveAccount(String accountNumber) {
         return accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
@@ -106,123 +109,6 @@ public class TransactionService {
         return openingBalance;
     }
 
-    @Transactional
-    public void transferMoneyBetweenAccounts(
-            String fromAccountNo,
-            String toAccountNo,
-            BigDecimal amount,
-            String remark
-    ) throws AccessDeniedException {
-
-        // Prevent same-account transfer...
-        if (fromAccountNo.equals(toAccountNo)) {
-            throw new RuntimeException("Cannot transfer to same account");
-        }
-
-        // Finding the active accounts via their account number...
-        Account from = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
-        Account to = findTheActiveAccount(toAccountNo); // Verifying if the 'to' account exists or not...
-
-        // Throw exception if given 'amount' <= zero or exceeding the maximum transfer limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.TRANSFER, amount);
-
-        // Checking the daily limit of transfer...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.TRANSFER, amount, from.getAccountNumber());;
-
-        // debit amount from 'fromAccount'
-        from.setAccountBalance(from.getAccountBalance().subtract(amount));
-
-        // credit amount to 'toAccount'
-        to.setAccountBalance(to.getAccountBalance().add(amount));
-
-        // Creating new transaction object to save the record in the table...
-        Transaction tnx = new Transaction();
-        tnx.setAmount(amount);
-        tnx.setFromAccount(from);
-        tnx.setToAccount(to);
-        tnx.setRemark(remark);
-        tnx.setType(TransactionType.TRANSFER);
-        tnx.setStatus(TransactionStatus.SUCCESS);
-        transactionRepository.save(tnx); // save the transaction...
-
-        // save accounts:
-        accountRepository.save(from);
-        accountRepository.save(to);
-    }
-
-    @Transactional
-    public void depositMoneyToTheAccount(String toAccountNo,
-                                         BigDecimal amount,
-                                         String remark) throws AccessDeniedException {
-
-        // Finding the active account via account number...
-        Account account = findActiveAccountAndValidate(toAccountNo); // We also checks if the 'to' account belongs to loggedIn user or not...
-
-        // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.DEPOSIT, amount);
-
-        // Checking the daily limit of deposit...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.DEPOSIT, amount, account.getAccountNumber());
-
-        // Update the balance...
-        account.setAccountBalance(account.getAccountBalance().add(amount));
-
-        // Creating new transaction object to save the record in the table...
-        Transaction txn = new Transaction();
-        txn.setToAccount(account);
-        txn.setType(TransactionType.DEPOSIT);
-        txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setAmount(amount);
-        String description = (remark != null && !remark.isEmpty()) ? remark : "Deposited money";
-        txn.setRemark(description);
-
-        // save the transaction:
-        transactionRepository.save(txn);
-
-        // save account:
-        accountRepository.save(account);
-    }
-
-    @Transactional
-    public void withdrawMoneyFromTheAccount(String fromAccountNo,
-                                            BigDecimal amount,
-                                            String remark) throws AccessDeniedException {
-
-        // Finding the active account via account number...
-        Account account = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
-
-        // Throw exception if given 'amount' <= zero or exceeding the maximum withdraw limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.WITHDRAW, amount);
-
-        // Checking the daily limit of withdrawal...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.WITHDRAW, amount, account.getAccountNumber());
-
-        // Throw exception if given amount is greater than the account balance...
-        if (account.getAccountBalance().compareTo(amount) < 0) {
-            throw new RuntimeException("Insufficient Balance");
-        }
-
-        // Update the balance...
-        account.setAccountBalance(account.getAccountBalance().subtract(amount));
-
-        // Creating new transaction object to save the record in the table...
-        Transaction txn = new Transaction();
-        txn.setFromAccount(account);
-        txn.setType(TransactionType.WITHDRAW);
-        txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setAmount(amount);
-        if (remark != null && !remark.isEmpty()) {
-            txn.setRemark(remark);
-        }
-
-        // save the transaction:
-        transactionRepository.save(txn);
-
-        // save account:
-        accountRepository.save(account);
-    }
-
-
     private AccountStatementDto generateStatementInternal(
             Account account,
             String accountNumber,
@@ -264,6 +150,191 @@ public class TransactionService {
         );
     }
 
+    private TransactionCompletedEvent buildEvent(Transaction txn, String userEmail){
+        log.info("Started building the kafka event...");
+        return new TransactionCompletedEvent(
+                txn.getTransactionReference(),
+                txn.getType().name(),
+                txn.getStatus().name(),
+                txn.getAmount(),
+                txn.getFromAccount() != null
+                        ? AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
+                        : null,
+                txn.getToAccount() != null
+                        ? AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
+                        : null,
+                txn.getCreatedAt(),
+                userEmail,
+                txn.getRemark()
+        );
+    }
+
+
+    private TransactionCompletedEvent buildSenderEvent(Transaction txn){
+        log.info("Started building the kafka event for transaction completed for sender...");
+        return new TransactionCompletedEvent(
+                txn.getTransactionReference(),
+                "TRANSFER_SENT",
+                txn.getStatus().name(),
+                txn.getAmount(),
+                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
+                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
+                txn.getCreatedAt(),
+                txn.getFromAccount().getUser().getEmail(),
+                (txn.getRemark() != null && !txn.getRemark().isEmpty()) ?  txn.getRemark()
+                        : "Sent to A/C " + AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
+        );
+    }
+
+    private TransactionCompletedEvent buildReceiverEvent(Transaction txn){
+        log.info("Started building the kafka event for transaction completed for receiver...");
+        return new TransactionCompletedEvent(
+                txn.getTransactionReference(),
+                "TRANSFER_RECEIVED",
+                txn.getStatus().name(),
+                txn.getAmount(),
+                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
+                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
+                txn.getCreatedAt(),
+                txn.getToAccount().getUser().getEmail(),
+                (txn.getRemark() != null && !txn.getRemark().isEmpty()) ?  txn.getRemark()
+                        : "Received from A/C " + AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
+        );
+    }
+
+    @Transactional
+    public void transferMoneyBetweenAccounts(
+            String fromAccountNo,
+            String toAccountNo,
+            BigDecimal amount,
+            String remark
+    ) throws AccessDeniedException {
+
+        // Prevent same-account transfer...
+        if (fromAccountNo.equals(toAccountNo)) {
+            throw new RuntimeException("Cannot transfer to same account");
+        }
+
+        // Finding the active accounts via their account number...
+        Account from = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
+        Account to = findTheActiveAccount(toAccountNo); // Verifying if the 'to' account exists or not...
+
+        // Throw exception if given 'amount' <= zero or exceeding the maximum transfer limit...
+        transactionLimitService.validatePerTransactionLimit(TransactionType.TRANSFER, amount);
+
+        // Checking the daily limit of transfer...
+        transactionLimitService.validateDailyTransactionLimit(TransactionType.TRANSFER, amount, from.getAccountNumber());
+
+        // debit amount from 'fromAccount'
+        from.setAccountBalance(from.getAccountBalance().subtract(amount));
+
+        // credit amount to 'toAccount'
+        to.setAccountBalance(to.getAccountBalance().add(amount));
+
+        // Creating new transaction object to save the record in the table...
+        Transaction txn = new Transaction();
+        txn.setAmount(amount);
+        txn.setFromAccount(from);
+        txn.setToAccount(to);
+        txn.setRemark(remark);
+        txn.setType(TransactionType.TRANSFER);
+        txn.setStatus(TransactionStatus.SUCCESS);
+        transactionRepository.save(txn); // save the transaction...
+
+        // save accounts:
+        accountRepository.save(from);
+        accountRepository.save(to);
+
+        // publish the kafka event...
+        TransactionCompletedEvent senderEvent = buildSenderEvent(txn);
+        TransactionCompletedEvent receiverEvent = buildReceiverEvent(txn);
+        transactionEventProducer.publishTransactionCompleted(senderEvent);
+        transactionEventProducer.publishTransactionCompleted(receiverEvent);
+    }
+
+    @Transactional
+    public void depositMoneyToTheAccount(String toAccountNo,
+                                         BigDecimal amount,
+                                         String remark) throws AccessDeniedException {
+
+        // Finding the active account via account number...
+        Account account = findActiveAccountAndValidate(toAccountNo); // We also checks if the 'to' account belongs to loggedIn user or not...
+
+        // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
+        transactionLimitService.validatePerTransactionLimit(TransactionType.DEPOSIT, amount);
+
+        // Checking the daily limit of deposit...
+        transactionLimitService.validateDailyTransactionLimit(TransactionType.DEPOSIT, amount, account.getAccountNumber());
+
+        // Update the balance...
+        account.setAccountBalance(account.getAccountBalance().add(amount));
+
+        // Creating new transaction object to save the record in the table...
+        Transaction txn = new Transaction();
+        txn.setToAccount(account);
+        txn.setType(TransactionType.DEPOSIT);
+        txn.setStatus(TransactionStatus.SUCCESS);
+        txn.setAmount(amount);
+        String description = (remark != null && !remark.isEmpty()) ? remark : "Deposited money";
+        txn.setRemark(description);
+
+        // save the transaction:
+        transactionRepository.save(txn);
+
+        // save account:
+        accountRepository.save(account);
+
+        // publish the kafka event...
+        String userEmail = account.getUser().getEmail();
+        TransactionCompletedEvent event = buildEvent(txn, userEmail);
+        transactionEventProducer.publishTransactionCompleted(event);
+
+    }
+
+    @Transactional
+    public void withdrawMoneyFromTheAccount(String fromAccountNo,
+                                            BigDecimal amount,
+                                            String remark) throws AccessDeniedException {
+
+        // Finding the active account via account number...
+        Account account = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
+
+        // Throw exception if given 'amount' <= zero or exceeding the maximum withdraw limit...
+        transactionLimitService.validatePerTransactionLimit(TransactionType.WITHDRAW, amount);
+
+        // Checking the daily limit of withdrawal...
+        transactionLimitService.validateDailyTransactionLimit(TransactionType.WITHDRAW, amount, account.getAccountNumber());
+
+        // Throw exception if given amount is greater than the account balance...
+        if (account.getAccountBalance().compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient Balance");
+        }
+
+        // Update the balance...
+        account.setAccountBalance(account.getAccountBalance().subtract(amount));
+
+        // Creating new transaction object to save the record in the table...
+        Transaction txn = new Transaction();
+        txn.setFromAccount(account);
+        txn.setType(TransactionType.WITHDRAW);
+        txn.setStatus(TransactionStatus.SUCCESS);
+        txn.setAmount(amount);
+        if (remark != null && !remark.isEmpty()) {
+            txn.setRemark(remark);
+        }
+
+        // save the transaction:
+        transactionRepository.save(txn);
+
+        // save account:
+        accountRepository.save(account);
+
+        // publish the kafka event...
+        String userEmail = account.getUser().getEmail();
+        TransactionCompletedEvent event = buildEvent(txn, userEmail);
+        transactionEventProducer.publishTransactionCompleted(event);
+    }
+
     @Transactional(readOnly = true)
     public AccountStatementDto generateStatement(
             String accountNumber,
@@ -288,16 +359,5 @@ public class TransactionService {
                 .orElseThrow(() -> new EntityNotFoundException("An error occurred..."));
         return generateStatementInternal(account,accountNumber,from,to);
     }
+
 }
-
-
-
-
-
-
-
-
-// How 'compareTo()' works:-
-// if(balance < amount): result '-1',
-// if(balance == amount): result '0',
-// if(balance > amount): result '1'

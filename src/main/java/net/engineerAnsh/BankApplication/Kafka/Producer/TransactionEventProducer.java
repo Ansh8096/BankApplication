@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class TransactionEventProducer {
 
-    private static final String Topic = "transaction-completed";
+    private static final String Topic = "transaction.completed";
 
     private final KafkaTemplate<String, TransactionCompletedEvent> kafkaTemplate;
 

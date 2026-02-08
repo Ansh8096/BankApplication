@@ -344,7 +344,7 @@ public class TransactionService {
         // Validate account ownership (API use case)...
         Account account = findActiveAccountAndValidate(accountNumber);
 
-        // Calling the internal implementation of the
+        // Calling the internal implementation of the generating statement...
         return generateStatementInternal(account,accountNumber,from,to);
     }
 
@@ -357,6 +357,8 @@ public class TransactionService {
         // NO ownership validation (scheduler use case)...
         Account account = accountRepository.findByAccountNumber(accountNumber)
                 .orElseThrow(() -> new EntityNotFoundException("An error occurred..."));
+
+        // Calling the internal implementation of the generating statement...
         return generateStatementInternal(account,accountNumber,from,to);
     }
 

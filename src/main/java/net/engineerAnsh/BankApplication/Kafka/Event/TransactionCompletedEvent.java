@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @Data
 public class TransactionCompletedEvent {
 
+    private String eventId;
     private String transactionReference;
     private String type;
     private String status;

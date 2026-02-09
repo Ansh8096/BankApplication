@@ -10,6 +10,7 @@ import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Repository.FailedKafkaEventRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -26,11 +27,21 @@ public class TransactionDLQConsumer {
     public void consumeDLQ(TransactionCompletedEvent event) {
         log.error("💀 DLQ MESSAGE RECEIVED: {}", event.getTransactionReference());
         try {
+
+            // If the event already exists in the DB, no need to save it again...
+            Optional<FailedKafkaEvent> existing = failedKafkaEventRepository
+                    .findByEventId(event.getEventId());
+            if (existing.isPresent()) {
+                log.warn("Event already stored, skipping: {}", event.getTransactionReference());
+                return;
+            }
+
             // Convert event to JSON...
             String payload = objectMapper.writeValueAsString(event);
 
             // Build failed event entity...
             FailedKafkaEvent failedEvent = FailedKafkaEvent.builder()
+                    .eventId(event.getEventId())
                     .transactionReference(event.getTransactionReference())
                     .topic("transaction.completed")
                     .payload(payload)

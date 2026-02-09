@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -153,6 +154,7 @@ public class TransactionService {
     private TransactionCompletedEvent buildEvent(Transaction txn, String userEmail){
         log.info("Started building the kafka event...");
         return new TransactionCompletedEvent(
+                UUID.randomUUID().toString(),
                 txn.getTransactionReference(),
                 txn.getType().name(),
                 txn.getStatus().name(),
@@ -173,6 +175,7 @@ public class TransactionService {
     private TransactionCompletedEvent buildSenderEvent(Transaction txn){
         log.info("Started building the kafka event for transaction completed for sender...");
         return new TransactionCompletedEvent(
+                UUID.randomUUID().toString(),
                 txn.getTransactionReference(),
                 "TRANSFER_SENT",
                 txn.getStatus().name(),
@@ -189,6 +192,7 @@ public class TransactionService {
     private TransactionCompletedEvent buildReceiverEvent(Transaction txn){
         log.info("Started building the kafka event for transaction completed for receiver...");
         return new TransactionCompletedEvent(
+                UUID.randomUUID().toString(),
                 txn.getTransactionReference(),
                 "TRANSFER_RECEIVED",
                 txn.getStatus().name(),

@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Email.EmailServiceimpl;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionSuccessProducer;
-import net.engineerAnsh.BankApplication.Kafka.Repository.FailedKafkaEventRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
@@ -18,7 +17,6 @@ import org.springframework.stereotype.Service;
 public class TransactionNotificationConsumer {
 
     private final EmailServiceimpl emailService;
-    private final FailedKafkaEventRepository failedKafkaEventRepository;
     private final TransactionSuccessProducer transactionSuccessProducer;
 
     @RetryableTopic(
@@ -67,7 +65,7 @@ public class TransactionNotificationConsumer {
             emailService.sendSimpleEmail(event.getUserEmail(), subject, body);
 
             // publish a success event:
-            transactionSuccessProducer.publishSuccess(event.getTransactionReference());
+            transactionSuccessProducer.publishSuccess(event.getEventId(), event.getTransactionReference());
 
         } catch (Exception e) {
             log.error("Failed to process transaction event {}",

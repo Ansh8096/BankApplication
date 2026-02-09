@@ -24,8 +24,8 @@ public class TransactionSuccessConsumer {
         log.info("Success ACK received for txn: {}", event.getTransactionReference());
         try {
 
-            // After success, If this event was a failed event mark it as resolved event now...
-            failedKafkaEventRepository.findByTransactionReference(event.getTransactionReference())
+            // After success, If this event was a failed event mark it as resolved event now in the DB...
+            failedKafkaEventRepository.findByEventId(event.getEventId())
                     .ifPresent(failedEvent -> {
                         failedEvent.setStatus(FailedEventStatus.RESOLVED);
                         failedKafkaEventRepository.save(failedEvent);

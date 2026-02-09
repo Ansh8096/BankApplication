@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class TransactionSuccessEvent {
 
+    private String eventId;
     private String transactionReference;
     private LocalDateTime processedAt;
 }

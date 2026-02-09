@@ -14,8 +14,9 @@ public class TransactionSuccessProducer {
 
     private final KafkaTemplate<String, TransactionSuccessEvent> kafkaTemplate;
 
-    public void publishSuccess(String transactionReference){
+    public void publishSuccess(String eventId, String transactionReference){
         TransactionSuccessEvent transactionSuccessEvent = new TransactionSuccessEvent(
+                eventId,
                 transactionReference,
                 LocalDateTime.now()
         );

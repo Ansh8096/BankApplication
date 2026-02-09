@@ -21,6 +21,9 @@ public class FailedKafkaEvent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "event_id", nullable = false, unique = true)
+    private String eventId;
+
     @Column(name = "transaction_reference", nullable = false)
     private String transactionReference;
 
@@ -41,6 +44,9 @@ public class FailedKafkaEvent {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private FailedEventStatus status;
+
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount = 0;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -9,6 +9,5 @@ import java.util.Optional;
 public interface FailedKafkaEventRepository extends JpaRepository<FailedKafkaEvent,Long>{
 
     List<FailedKafkaEvent> findByStatusNot(FailedEventStatus status);
-
-    Optional<FailedKafkaEvent> findByTransactionReference(String transactionReference);
+    Optional<FailedKafkaEvent> findByEventId(String eventId);
 }

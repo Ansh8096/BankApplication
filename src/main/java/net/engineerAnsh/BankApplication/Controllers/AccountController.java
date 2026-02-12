@@ -2,7 +2,6 @@ package net.engineerAnsh.BankApplication.Controllers;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.Account.CreateAccountDto;
 import net.engineerAnsh.BankApplication.Services.AccountService;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +10,6 @@ import java.net.URI;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-@Slf4j
 @RestController
 @RequestMapping("/account")
 @RequiredArgsConstructor

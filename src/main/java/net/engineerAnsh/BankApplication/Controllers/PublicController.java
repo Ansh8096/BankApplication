@@ -4,7 +4,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Encoders;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.PublicDto.LoginRequest;
 import net.engineerAnsh.BankApplication.Dto.PublicDto.SignupRequest;
 import net.engineerAnsh.BankApplication.Services.UserService;
@@ -19,7 +18,6 @@ import javax.crypto.SecretKey;
 import java.net.URI;
 import java.util.List;
 
-@Slf4j
 @RestController
 @RequestMapping("/public")
 @RequiredArgsConstructor

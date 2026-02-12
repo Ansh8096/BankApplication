@@ -20,12 +20,9 @@ public class EmailServiceimpl implements EmailService{
     @Override
     public void sendSimpleEmail(String to, String subject, String body) {
             SimpleMailMessage message = new SimpleMailMessage();
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
             message.setTo(to);
             message.setSubject(subject);
             message.setText(body);
-
             mailSender.send(message);
             log.info("Simple email sent to {}", to);
     }

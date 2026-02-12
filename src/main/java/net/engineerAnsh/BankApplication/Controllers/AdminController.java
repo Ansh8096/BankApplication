@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.PublicDto.AssignRoleRequest;
 import net.engineerAnsh.BankApplication.Email.EmailServiceimpl;
 import net.engineerAnsh.BankApplication.Entity.User;
-import net.engineerAnsh.BankApplication.Schedular.MonthlyStatementSchedular;
+import net.engineerAnsh.BankApplication.Services.AdminStatementService;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,7 +21,7 @@ import java.util.Map;
 public class AdminController { // Only users that have role as: "ROLE_ADMIN, will be able to access these end points"
 
     private final UserService userService;
-    private final MonthlyStatementSchedular scheduler;
+    private final AdminStatementService adminStatementService;
     private final EmailServiceimpl emailService;
 
     @GetMapping("/get-all-users")
@@ -67,7 +67,7 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
                     )
             );
         }
-        scheduler.sendMonthlyStatementsManually(yearMonth);
+        adminStatementService.sendMonthlyStatementsManually(yearMonth);
 
         // Since sendMonthlyStatementsManually() is marked @Async,
         // the API will respond immediately and the job runs in background....

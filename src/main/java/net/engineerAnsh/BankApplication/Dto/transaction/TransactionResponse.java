@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class TransactionResponse {
 
-    private Long transactionId;
+    private String transactionReference;
 
     private String fromAccountNo;
 

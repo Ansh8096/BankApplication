@@ -21,6 +21,9 @@ public class TransferRequest {
     @Positive
     private BigDecimal amount;
 
+    @NotBlank
+    private String clientTransactionId;
+
     private String remark;
 
 }

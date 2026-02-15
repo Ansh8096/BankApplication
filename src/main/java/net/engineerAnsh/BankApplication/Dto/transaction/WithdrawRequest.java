@@ -18,6 +18,9 @@ public class WithdrawRequest {
     @Positive
     private BigDecimal amount;
 
+    @NotBlank
+    private String clientTransactionId;
+
     @Getter
     private static final String remark = "ATM Withdrawal";
 }

@@ -31,6 +31,9 @@ public class Transaction {
     )
     private String transactionReference;
 
+    @Column(name = "client_transaction_id", unique = true, length = 100)
+    private String clientTransactionId;
+
     // Why '@JoinColumn' used here:-
     // @JoinColumn is for relationships (foreign keys), (means we should use this, because 'fromAccount' is a reference to another entity)...
     // Since 'fromAccount' is an object, not a simple value, we must use @JoinColumn...

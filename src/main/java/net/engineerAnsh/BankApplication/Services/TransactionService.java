@@ -5,7 +5,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
 import net.engineerAnsh.BankApplication.Dto.Statements.StatementRowDto;
+import net.engineerAnsh.BankApplication.Dto.transaction.DepositRequest;
 import net.engineerAnsh.BankApplication.Dto.transaction.TransactionResponse;
+import net.engineerAnsh.BankApplication.Dto.transaction.TransferRequest;
+import net.engineerAnsh.BankApplication.Dto.transaction.WithdrawRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
 import net.engineerAnsh.BankApplication.Enum.AccountStatus;
@@ -16,9 +19,12 @@ import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -56,11 +62,10 @@ public class TransactionService {
         return account;
     }
 
-    // I will be using this method when we want to fetch transaction by reference number...
     private TransactionResponse mapToTransactionResponse(Transaction txn) {
         // I'm able to set all the values in the constructor like this, because of the notations of constructors on 'TransactionResponse'...
         return new TransactionResponse(
-                txn.getId(),
+                txn.getTransactionReference(),
                 txn.getFromAccount() != null
                         ? AccountMaskingUtil.maskAccountNumber(
                         txn.getFromAccount().getAccountNumber())
@@ -186,8 +191,9 @@ public class TransactionService {
                 AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
                 txn.getCreatedAt(),
                 txn.getFromAccount().getUser().getEmail(),
-                (txn.getRemark() != null && !txn.getRemark().isEmpty()) ? txn.getRemark()
-                        : "Sent to A/C " + AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
+                (txn.getRemark() != null && !txn.getRemark().isEmpty())
+                        ? txn.getRemark()
+                        : txn.getAmount() + " Sent to A/C " + AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
         );
     }
 
@@ -203,125 +209,211 @@ public class TransactionService {
                 AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
                 txn.getCreatedAt(),
                 txn.getToAccount().getUser().getEmail(),
-                (txn.getRemark() != null && !txn.getRemark().isEmpty()) ? txn.getRemark()
-                        : "Received from A/C " + AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
+                (txn.getRemark() != null && !txn.getRemark().isEmpty())
+                        ? txn.getRemark()
+                        : txn.getAmount() + " Received from A/C " + AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
         );
     }
 
+    // This method will return the 'TransactionResponse' of the 'transaction' if it exists, else return null...
+    private TransactionResponse handleIdempotency(String clientTransactionId){
+        return transactionRepository.findByClientTransactionId(clientTransactionId)
+                .map(this::mapToTransactionResponse)
+                .orElse(null);
+    }
+
+    private void validateClientTransactionId(String clientTransactionId) {
+        if (clientTransactionId == null || clientTransactionId.isBlank()) {
+            throw new RuntimeException("clientTransactionId is required");
+        }
+    }
+
+    private void duplicateTransactionLog(String clientTransactionId){
+        log.info("Duplicate transaction detected. Returning existing result. clientTransactionId={}",clientTransactionId);
+    }
+
     @Transactional
-    public void transferMoneyBetweenAccounts(
-            String fromAccountNo,
-            String toAccountNo,
-            BigDecimal amount,
-            String remark
-    ) throws AccessDeniedException {
+    public TransactionResponse transferMoneyBetweenAccounts(TransferRequest request) throws AccessDeniedException {
+
+        validateClientTransactionId(request.getClientTransactionId());
+
+        TransactionResponse existingTransaction = handleIdempotency(request.getClientTransactionId());
+
+        // return the previous result, if the same transaction is repeated...
+        if (existingTransaction != null) {
+            duplicateTransactionLog(request.getClientTransactionId());
+            return existingTransaction;
+        }
 
         // Finding the active accounts via their account number...
-        Account from = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
-        Account to = findTheActiveAccount(toAccountNo); // Verifying if the 'to' account exists or not...
+        Account from = findActiveAccountAndValidate(request.getFromAccountNumber()); // We also checks if the 'from' account belongs to loggedIn user or not...
+        Account to = findTheActiveAccount(request.getToAccountNumber()); // Verifying if the 'to' account exists or not...
 
         // Prevent same-account transfer...
-        if (fromAccountNo.equals(toAccountNo)) {
-            throw new RuntimeException("Cannot transfer to same account");
+        if (request.getFromAccountNumber().equals(request.getToAccountNumber())) {
+            throw new IllegalArgumentException("Cannot transfer to same account");
         }
 
         // Throw exception if given 'amount' <= zero or exceeding the maximum transfer limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.TRANSFER, amount);
+        transactionLimitService.validatePerTransactionLimit(TransactionType.TRANSFER, request.getAmount());
 
         // Checking the daily limit of transfer...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.TRANSFER, amount, from.getAccountNumber());
+        transactionLimitService.validateDailyTransactionLimit(TransactionType.TRANSFER, request.getAmount(), from.getAccountNumber());
 
         // Check balance using ledger...
-        BigDecimal currentBalance = ledgerService.calculateAccountBalance(fromAccountNo);
+        BigDecimal currentBalance = ledgerService.calculateAccountBalance(request.getFromAccountNumber());
 
-        if(currentBalance.compareTo(amount) < 0){
-            throw new RuntimeException("Insufficient balance");
+        if (currentBalance.compareTo(request.getAmount()) < 0) {
+            throw new IllegalArgumentException("Insufficient balance");
         }
 
         // Creating new transaction object to save the record in the table...
         Transaction txn = new Transaction();
-        txn.setAmount(amount);
+        txn.setAmount(request.getAmount());
         txn.setFromAccount(from);
         txn.setToAccount(to);
-        txn.setRemark(remark);
+        txn.setRemark(request.getRemark());
         txn.setType(TransactionType.TRANSFER);
         txn.setStatus(TransactionStatus.SUCCESS);
-        transactionRepository.save(txn); // save the transaction...
+        txn.setClientTransactionId(request.getClientTransactionId()); // idempotency field...
+
+        // Handle race condition :
+        // (PB: Two identical requests arrive at the same time, Both pass the “not found” check, Then both try to insert)
+        // Solution: Catch the DB exception and return the existing transaction...
+        try {
+            transactionRepository.save(txn); // save the transaction...
+        } catch (DataIntegrityViolationException ex) {
+            // Duplicate clientTransactionId detected
+            Transaction transaction = transactionRepository
+                    .findByClientTransactionId(request.getClientTransactionId())
+                    .orElseThrow(() -> ex);
+            return mapToTransactionResponse(transaction);
+        }
 
         // Ledger entries
         ledgerService.recordTransfer(
                 from,
                 to,
-                amount,
+                request.getAmount(),
                 txn.getTransactionReference(),
-                (remark != null && !remark.isEmpty()) ? remark : "Transfer transaction"
+                (request.getRemark() != null && !request.getRemark().isEmpty())
+                        ? request.getRemark()
+                        : "Transfer transaction"
         );
 
-        // publish the kafka event...
+        // prepare kafka events...
         TransactionCompletedEvent senderEvent = buildSenderEvent(txn);
         TransactionCompletedEvent receiverEvent = buildReceiverEvent(txn);
-        transactionEventProducer.publishTransactionCompleted(senderEvent);
-        transactionEventProducer.publishTransactionCompleted(receiverEvent);
+
+        // Publish kafka events only after DB commit...
+        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        transactionEventProducer.publishTransactionCompleted(senderEvent);
+                        transactionEventProducer.publishTransactionCompleted(receiverEvent);
+                    }
+                }
+        );
+
+        return mapToTransactionResponse(txn);
+
     }
 
     @Transactional
-    public void depositMoneyToTheAccount(String toAccountNo,
-                                         BigDecimal amount,
-                                         String remark) throws AccessDeniedException {
+    public TransactionResponse depositMoneyToTheAccount(DepositRequest request) throws AccessDeniedException {
+
+        validateClientTransactionId(request.getClientTransactionId());
+
+        TransactionResponse existingTransaction = handleIdempotency(request.getClientTransactionId());
+
+        // return the previous result, if the same transaction is repeated...
+        if (existingTransaction != null) {
+            duplicateTransactionLog(request.getClientTransactionId());
+            return existingTransaction;
+        }
 
         // We check if the 'to' account exists or not...
-        Account account = findTheActiveAccount(toAccountNo);
+        Account account = findTheActiveAccount(request.getAccountNo());
 
         // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.DEPOSIT, amount);
+        transactionLimitService.validatePerTransactionLimit(TransactionType.DEPOSIT, request.getAmount());
 
         // Checking the daily limit of deposit...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.DEPOSIT, amount, toAccountNo);
+        transactionLimitService.validateDailyTransactionLimit(TransactionType.DEPOSIT, request.getAmount(), request.getAccountNo());
 
         // Creating new transaction object to save the record in the table...
         Transaction txn = new Transaction();
         txn.setToAccount(account);
         txn.setType(TransactionType.DEPOSIT);
         txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setAmount(amount);
-        String description = (remark != null && !remark.isEmpty()) ? remark : "Deposited money";
+        txn.setAmount(request.getAmount());
+        String description = (request.getRemark() != null && !request.getRemark().isEmpty()) ? request.getRemark() : "Deposited money";
         txn.setRemark(description);
+        txn.setClientTransactionId(request.getClientTransactionId());
 
-        // save the transaction:
-        transactionRepository.save(txn);
+        try {
+            // save the transaction:
+            transactionRepository.save(txn);
+        } catch (DataIntegrityViolationException ex) {
+            // Duplicate clientTransactionId detected
+            Transaction transaction = transactionRepository
+                    .findByClientTransactionId(request.getClientTransactionId())
+                    .orElseThrow(() -> ex);
+            return mapToTransactionResponse(transaction);
+        }
 
         // Ledger entries
         ledgerService.recordDeposit(
                 account,
-                amount,
+                request.getAmount(),
                 txn.getTransactionReference(),
                 txn.getRemark()
         );
 
-        // publish the kafka event...
+        // prepare the kafka event...
         String userEmail = account.getUser().getEmail();
         TransactionCompletedEvent event = buildEvent(txn, userEmail);
-        transactionEventProducer.publishTransactionCompleted(event);
 
+        // Publish kafka events only after DB commit...
+        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        transactionEventProducer.publishTransactionCompleted(event);
+                    }
+                }
+        );
+
+        return mapToTransactionResponse(txn);
     }
 
     @Transactional
-    public void withdrawMoneyFromTheAccount(String fromAccountNo,
-                                            BigDecimal amount,
-                                            String remark) throws AccessDeniedException {
+    public TransactionResponse withdrawMoneyFromTheAccount(WithdrawRequest request) throws AccessDeniedException {
+
+        validateClientTransactionId(request.getClientTransactionId());
+
+        TransactionResponse existingTransaction = handleIdempotency(request.getClientTransactionId());
+
+        // return the previous result, if the same transaction is repeated...
+        if (existingTransaction != null) {
+            duplicateTransactionLog(request.getClientTransactionId());
+            return existingTransaction;
+        }
 
         // Finding the active account via account number...
-        Account account = findActiveAccountAndValidate(fromAccountNo); // We also checks if the 'from' account belongs to loggedIn user or not...
+        Account account = findActiveAccountAndValidate(request.getAccountNo()); // We also checks if the 'from' account belongs to loggedIn user or not...
 
         // Throw exception if given 'amount' <= zero or exceeding the maximum withdraw limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.WITHDRAW, amount);
+        transactionLimitService.validatePerTransactionLimit(TransactionType.WITHDRAW, request.getAmount());
 
         // Checking the daily limit of withdrawal...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.WITHDRAW, amount, fromAccountNo);
+        transactionLimitService.validateDailyTransactionLimit(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo());
 
-        // Throw exception if given amount is greater than the account balance...
-        if (ledgerService.calculateAccountBalance(fromAccountNo).compareTo(amount) < 0) {
-            throw new RuntimeException("Insufficient Balance");
+        if(ledgerService.calculateAccountBalance(request.getAccountNo()).compareTo(request.getAmount()) < 0){
+            throw new IllegalArgumentException("Insufficient balance");
         }
 
         // Creating new transaction object to save the record in the table...
@@ -329,26 +421,45 @@ public class TransactionService {
         txn.setFromAccount(account);
         txn.setType(TransactionType.WITHDRAW);
         txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setAmount(amount);
-        if (remark != null && !remark.isEmpty()) {
-            txn.setRemark(remark);
-        }
+        txn.setAmount(request.getAmount());
+        txn.setRemark(WithdrawRequest.getRemark());
+        txn.setClientTransactionId(request.getClientTransactionId());
 
-        // save the transaction:
-        transactionRepository.save(txn);
+        try {
+            // save the transaction:
+            transactionRepository.save(txn);
+        } catch (DataIntegrityViolationException ex) {
+            // Duplicate clientTransactionId detected
+            Transaction transaction = transactionRepository
+                    .findByClientTransactionId(request.getClientTransactionId())
+                    .orElseThrow(() -> ex);
+            return mapToTransactionResponse(transaction);
+        }
 
         // Ledger entries
         ledgerService.recordWithdrawal(
                 account,
-                amount,
+                request.getAmount(),
                 txn.getTransactionReference(),
                 txn.getRemark()
         );
 
-        // publish the kafka event...
+        // prepare the kafka event...
         String userEmail = account.getUser().getEmail();
         TransactionCompletedEvent event = buildEvent(txn, userEmail);
-        transactionEventProducer.publishTransactionCompleted(event);
+
+        // Publish kafka events only after DB commit...
+        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        transactionEventProducer.publishTransactionCompleted(event);
+                    }
+                }
+        );
+
+        return mapToTransactionResponse(txn);
     }
 
     @Transactional(readOnly = true)

@@ -15,8 +15,11 @@ public class DepositRequest {
     private String accountNo;
 
     @NotNull
-    @Positive
+    @Positive(message = "Amount must be greater than zero")
     private BigDecimal amount;
+
+    @NotBlank
+    private String clientTransactionId;
 
     private String remark;
 }

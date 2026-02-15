@@ -3,6 +3,7 @@ package net.engineerAnsh.BankApplication.Controllers;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.transaction.DepositRequest;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
+import net.engineerAnsh.BankApplication.Dto.transaction.TransactionResponse;
 import net.engineerAnsh.BankApplication.Dto.transaction.TransferRequest;
 import net.engineerAnsh.BankApplication.Dto.transaction.WithdrawRequest;
 import net.engineerAnsh.BankApplication.Services.StatementPdfService;
@@ -26,30 +27,20 @@ public class transactionController {
 
     @PostMapping("/transfer")
     public ResponseEntity<?> transferMoney(@RequestBody TransferRequest request) throws AccessDeniedException {
-        transactionService.transferMoneyBetweenAccounts(request.getFromAccountNumber(),
-                request.getToAccountNumber(),
-                request.getAmount(),
-                request.getRemark()
-        );
-        return ResponseEntity.ok().body("Transfer is successful");
+        TransactionResponse transactionResponse = transactionService.transferMoneyBetweenAccounts(request);
+        return ResponseEntity.ok().body(transactionResponse);
     }
 
     @PostMapping("/deposit")
     public ResponseEntity<?> depositMoney(@RequestBody DepositRequest request) throws AccessDeniedException {
-        transactionService.depositMoneyToTheAccount(request.getAccountNo(),
-                request.getAmount(),
-                request.getRemark()
-        );
-        return ResponseEntity.ok().body("Amount is successfully deposited");
+        TransactionResponse transactionResponse = transactionService.depositMoneyToTheAccount(request);
+        return ResponseEntity.ok().body(transactionResponse);
     }
 
     @PostMapping("/withdraw")
     public ResponseEntity<?> withdrawMoney(@RequestBody WithdrawRequest request) throws AccessDeniedException {
-        transactionService.withdrawMoneyFromTheAccount(request.getAccountNo(),
-                request.getAmount(),
-                WithdrawRequest.getRemark()
-        );
-        return ResponseEntity.ok().body("withdraw successful");
+        TransactionResponse transactionResponse = transactionService.withdrawMoneyFromTheAccount(request);
+        return ResponseEntity.ok().body(transactionResponse);
     }
 
     @GetMapping("/statement/pdf/{accountNumber}")

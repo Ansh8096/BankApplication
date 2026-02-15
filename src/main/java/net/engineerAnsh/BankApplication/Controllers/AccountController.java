@@ -6,6 +6,7 @@ import net.engineerAnsh.BankApplication.Dto.Account.CreateAccountDto;
 import net.engineerAnsh.BankApplication.Services.AccountService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.math.BigDecimal;
 import java.net.URI;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -56,6 +57,12 @@ public class AccountController {
         boolean isClosed = accountService.closeTheAccountByAccountNumber(accountNumber);
         if (isClosed) return ResponseEntity.ok().build();
         else return ResponseEntity.ok().body("Account is already closed");
+    }
+
+    @GetMapping("/get-account-balance/{accountNumber}")
+    public ResponseEntity<?> getTheAccountBalanceByAccountNumber(@PathVariable String accountNumber) throws AccessDeniedException {
+        BigDecimal balance = accountService.getTheAccountBalanceByAccountNumber(accountNumber);
+        return ResponseEntity.ok().body("Account Balance: " + balance);
     }
 
 }

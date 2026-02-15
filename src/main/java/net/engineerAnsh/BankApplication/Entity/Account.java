@@ -7,7 +7,6 @@ import net.engineerAnsh.BankApplication.Enum.AccountStatus;
 import net.engineerAnsh.BankApplication.Enum.AccountType;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -27,11 +26,6 @@ public class Account {
 
     @Column(name = "ifsc_code", nullable = false, length = 11)
     private String ifscCode;
-
-    @Column(name = "balance",nullable = false,
-            precision = 19, // precision = digits_before_decimal + digits_after_decimal
-            scale = 2) // This means: Exactly 2 digits after decimal
-    private BigDecimal accountBalance = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "account_type",nullable = false)
@@ -64,9 +58,6 @@ public class Account {
     public void prePersist(){
         if(accountStatus == null){
             accountStatus = AccountStatus.ACTIVE;
-        }
-        if(accountBalance == null){
-            accountBalance = BigDecimal.ZERO;
         }
         if(ifscCode == null || ifscCode.isEmpty()){
             ifscCode = "BOAN0000001";

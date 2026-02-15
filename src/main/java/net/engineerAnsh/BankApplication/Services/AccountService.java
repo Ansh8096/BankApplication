@@ -14,6 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -23,6 +24,8 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    private final LedgerService ledgerService;
+
     @Getter
     private static final String not_owner_msg = "The account doesn't belong to the logged-in user";
 
@@ -119,6 +122,12 @@ public class AccountService {
         savedAccount.setAccountClosedAt(LocalDateTime.now());
         accountRepository.save(savedAccount);
         return true;
+    }
+
+    @Transactional
+    public BigDecimal getTheAccountBalanceByAccountNumber(String accountNumber) throws AccessDeniedException {
+        Account savedAccount = findNotClosedAccountAndValidate(accountNumber);
+        return ledgerService.calculateAccountBalance(savedAccount.getAccountNumber());
     }
 
 }

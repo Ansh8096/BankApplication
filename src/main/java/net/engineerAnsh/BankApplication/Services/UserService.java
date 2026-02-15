@@ -67,6 +67,7 @@ public class UserService {
         userRepository.save(newUser);
     }
 
+    @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     public List<User> getAllUsers() {
         return userRepository.findAllActiveUsers();
     }

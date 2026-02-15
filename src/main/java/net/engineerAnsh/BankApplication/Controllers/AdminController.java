@@ -78,6 +78,4 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
                 )
         );
     }
-
-
 }

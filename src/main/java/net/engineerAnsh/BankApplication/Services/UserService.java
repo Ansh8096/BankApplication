@@ -1,7 +1,6 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Dto.PublicDto.SignupRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;
@@ -27,6 +26,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private static final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+
     public String getUserEmail() {
         return SecurityContextHolder
                 .getContext()
@@ -44,30 +44,8 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("This role doesn't exists"));
     }
 
-    @Transactional
-    public void saveNewUser(SignupRequest request) {
 
-        if(userRepository.existsByEmail(request.getEmail())){
-            throw new IllegalArgumentException("Email already registered");
-        }
-        // making sure if the role exists in the role table or not...
-        Role userRole = findRoleByName("ROLE_USER"); // this will return Role if present, else Throw an exception...
-
-        // Creating new user...
-        User newUser = new User();
-        newUser.setName(request.getName());
-        newUser.getRoles().add(userRole); // setting "ROLE_USER"...
-        newUser.setEmail(request.getEmail());
-        newUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        newUser.setAge(request.getAge());
-        newUser.setKycStatus(false);
-        newUser.setPhoneNumber(request.getPhone());
-
-        // Saving user in DB...
-        userRepository.save(newUser);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
+//    @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     public List<User> getAllUsers() {
         return userRepository.findAllActiveUsers();
     }

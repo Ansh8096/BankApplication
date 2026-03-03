@@ -14,5 +14,4 @@ public interface EmailService {
             byte[] attachement,
             String fileName
     ) throws MessagingException;
-
 }

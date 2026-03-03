@@ -4,6 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -49,5 +50,19 @@ public class EmailServiceimpl implements EmailService{
         mailSender.send(mimeMessage);
 
         log.info("Email with attachment sent to {}", to);
+    }
+
+    @Value("${app.base-url}")
+    private String baseUrl;
+
+    public void sendVerificationEmail(String toEmail, String token) {
+        String verificationLink = baseUrl +
+                "/auth/verify?token=" + token;
+        String subject = "Verify Your Account - Bank Application";
+        String text = "Thank you for registering.\n\n" +
+                "Click the link below to verify your account:\n" +
+                verificationLink +
+                "\n\nThis link will expire in 15 minutes.";
+        sendSimpleEmail(toEmail, subject, text);
     }
 }

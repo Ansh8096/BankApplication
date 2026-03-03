@@ -41,7 +41,7 @@ public class User{
     private String passwordHash;
 
     @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
+    private Boolean active = false;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
@@ -58,6 +58,17 @@ public class User{
     @Column(name = "kyc_status", nullable = false)
     private Boolean KycStatus;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
+    @Column(nullable = false)
+    private boolean accountLocked = false;
+
+    @Column(nullable = false)
+    private int failedAttempts = 0; // if login tries multiple time, lock account...
+
+    private LocalDateTime lockTime;
+
     // “We don’t define setters for createdAt and updatedAt.
     // Hibernate automatically manages them using @CreationTimestamp and @UpdateTimestamp.”
     @CreationTimestamp
@@ -67,6 +78,7 @@ public class User{
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    private LocalDateTime lastLoginAt;
 
     // ManyToMany : One User can have many Roles, One Role can belong to many Users.
     @ManyToMany(fetch = FetchType.EAGER) // Eager means:  When you load a User, roles are loaded immediately (It is very important for the spring Security)
@@ -77,6 +89,9 @@ public class User{
     )
     private Set<Role> roles = new HashSet<>();
 
+//    private LocalDateTime lastFailedAttempt;
+//    private String lastLoginIp;
+//    private String lastLoginDevice;
 
 }
 

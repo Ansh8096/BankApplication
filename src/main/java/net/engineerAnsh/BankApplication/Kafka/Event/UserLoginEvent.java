@@ -7,9 +7,10 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserRegisteredEvent {
+public class UserLoginEvent {
 
     private String email;
-    private String verificationToken;
+    private String ipAddress;
+    private String userAgent;
 
 }

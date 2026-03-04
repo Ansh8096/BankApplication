@@ -9,6 +9,7 @@ import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.RoleRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,7 +37,7 @@ public class UserService {
 
     public User findUser(String email) {
         return userRepository.findByEmailAndActiveTrue(email)
-                .orElseThrow(() -> new RuntimeException("This User is not found"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
     }
 
     public Role findRoleByName(String roleName) {

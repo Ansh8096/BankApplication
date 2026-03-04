@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.StatementEmailContent.StatementEmailContent;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
-import net.engineerAnsh.BankApplication.Email.EmailServiceimpl;
+import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.StatementJob;
 import net.engineerAnsh.BankApplication.Enum.AccountStatus;
@@ -28,7 +28,7 @@ public class StatementJobService {
     private final AccountRepository accountRepository;
     private final TransactionService transactionService;
     private final StatementPdfService statementPdfService;
-    private final EmailServiceimpl emailService;
+    private final EmailServiceImpl emailService;
     private final StatementEmailContentBuilder emailContentBuilder;
 
     @Value("${statement.max-retries}")

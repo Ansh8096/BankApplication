@@ -2,7 +2,7 @@ package net.engineerAnsh.BankApplication.Controllers;
 
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.Auth.AssignRoleRequest;
-import net.engineerAnsh.BankApplication.Email.EmailServiceimpl;
+import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Services.AdminStatementService;
 import net.engineerAnsh.BankApplication.Services.UserService;
@@ -22,7 +22,7 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
 
     private final UserService userService;
     private final AdminStatementService adminStatementService;
-    private final EmailServiceimpl emailService;
+    private final EmailServiceImpl emailService;
 
     @GetMapping("/get-all-users")
     public ResponseEntity<List<User>> getAllUsers() {

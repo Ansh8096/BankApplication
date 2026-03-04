@@ -18,7 +18,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "users")
-public class User{
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY) // @GeneratedValue → MySQL AUTO_INCREMENT
@@ -31,7 +31,7 @@ public class User{
     @Email
     private String email;
 
-    @Column(name = "age",nullable = false)
+    @Column(name = "age", nullable = false)
     private Integer age; // age eligibility for loan.
 
     @Column(name = "phone_number", unique = true, nullable = false, length = 15)
@@ -51,7 +51,8 @@ public class User{
     @OneToMany(mappedBy = "user",
             cascade = CascadeType.ALL,
             fetch = FetchType.LAZY, // FetchType.LAZY = “Load only when needed”,In this the Hibernate will : Load User data first , then Load Accounts only when required...
-            orphanRemoval = true)// orphanRemoval = true — Auto delete child , Meaning : If an account is removed from the list, it is deleted from DB...
+            orphanRemoval = true)
+// orphanRemoval = true — Auto delete child , Meaning : If an account is removed from the list, it is deleted from DB...
     @JsonIgnore // It tells Spring Boot: " Do NOT include this field when converting this object to JSON ”
     private List<Account> accounts = new ArrayList<>(); // we are not creating the column for this because user can have multiple accounts...
 
@@ -67,12 +68,13 @@ public class User{
     @Column(nullable = false)
     private int failedAttempts = 0; // if login tries multiple time, lock account...
 
+    @Column(name = "lock_time")
     private LocalDateTime lockTime;
 
     // “We don’t define setters for createdAt and updatedAt.
     // Hibernate automatically manages them using @CreationTimestamp and @UpdateTimestamp.”
     @CreationTimestamp
-    @Column(updatable = false,nullable = false)
+    @Column(updatable = false, nullable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
@@ -81,7 +83,8 @@ public class User{
     private LocalDateTime lastLoginAt;
 
     // ManyToMany : One User can have many Roles, One Role can belong to many Users.
-    @ManyToMany(fetch = FetchType.EAGER) // Eager means:  When you load a User, roles are loaded immediately (It is very important for the spring Security)
+    @ManyToMany(fetch = FetchType.EAGER)
+    // Eager means:  When you load a User, roles are loaded immediately (It is very important for the spring Security)
     @JoinTable( // Tells Hibernate: “Use a table named user_roles to connect users and roles.”
             name = "user_roles", // Hibernate creates a third table: This table links users <-> roles.
             joinColumns = @JoinColumn(name = "user_id"), // This column points to User , user_id is a foreign key to users.id (means: user_id → users.user_id)
@@ -89,9 +92,14 @@ public class User{
     )
     private Set<Role> roles = new HashSet<>();
 
-//    private LocalDateTime lastFailedAttempt;
-//    private String lastLoginIp;
-//    private String lastLoginDevice;
+    @Column
+    private LocalDateTime lastFailedAttempt;
+
+    @Column
+    private String lastLoginIp;
+
+    @Column
+    private String lastLoginDevice;
 
 }
 

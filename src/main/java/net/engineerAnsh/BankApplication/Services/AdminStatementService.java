@@ -2,7 +2,7 @@ package net.engineerAnsh.BankApplication.Services;
 
 import net.engineerAnsh.BankApplication.Dto.StatementEmailContent.StatementEmailContent;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
-import net.engineerAnsh.BankApplication.Email.EmailServiceimpl;
+import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Enum.AccountStatus;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
@@ -24,7 +24,7 @@ public class AdminStatementService {
     private final AccountRepository accountRepository;
     private final TransactionService transactionService;
     private final StatementPdfService statementPdfService;
-    private final EmailServiceimpl emailService;
+    private final EmailServiceImpl emailService;
     private final StatementEmailContentBuilder emailContentBuilder;
 
     @Async

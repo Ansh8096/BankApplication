@@ -2,27 +2,35 @@ package net.engineerAnsh.BankApplication.Services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.engineerAnsh.BankApplication.Dto.Auth.LoginRequest;
 import net.engineerAnsh.BankApplication.Dto.Auth.SignupRequest;
 import net.engineerAnsh.BankApplication.Entity.EmailVerificationToken;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;
+import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
+import net.engineerAnsh.BankApplication.Kafka.Producer.UserLoginEventProducer;
 import net.engineerAnsh.BankApplication.Kafka.Producer.UserRegisteredEventProducer;
 import net.engineerAnsh.BankApplication.Repository.EmailVerificationTokenRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
+import net.engineerAnsh.BankApplication.Security.Jwt.JwtUtils;
 import net.engineerAnsh.BankApplication.exception.InvalidTokenException;
 import net.engineerAnsh.BankApplication.exception.TokenExpiredException;
 import net.engineerAnsh.BankApplication.exception.TooManyRequestsException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.authentication.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,6 +43,9 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserService userService;
     private final UserRegisteredEventProducer registeredEventProducer;
+    private final UserLoginEventProducer loginEventProducer;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtils jwtUtils;
     private static final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Value("${app.verification.cooldown-minutes}")
@@ -45,6 +56,12 @@ public class AuthService {
 
     @Value("${app.verification.resend-window-hours}")
     private int resendWindowHours;
+
+    @Value("${auth.lock-duration-minutes}")
+    private int authLoginLockDuration;
+
+    @Value("${auth.login.max-attempts}")
+    private int authLoginMaxAttempts;
 
     private final RedisTemplate redisTemplate;
 
@@ -57,6 +74,108 @@ public class AuthService {
 
         }
     }
+
+    @Transactional(noRollbackFor = BadCredentialsException.class)
+    public String performLogin(LoginRequest request, String ip, String userAgent) {
+
+        String email = request.getEmail();
+
+        // Try to fetch user (may be null)
+        User user = userRepository.findByEmailAndActiveTrue(email).orElse(null);
+
+        // If user exists, check account lock
+        if (user != null && user.isAccountLocked()) {
+
+            // Auto-unlock after 30 minutes
+            if (user.getLockTime() != null &&
+                    user.getLockTime()
+                            .plusMinutes(authLoginLockDuration)
+                            .isBefore(LocalDateTime.now())) {
+                user.setAccountLocked(false);
+                user.setFailedAttempts(0);
+                user.setLockTime(null);
+            } else {
+                throw new LockedException("Account is locked. Try later.");
+            }
+        }
+
+        // If user exists but email not verified
+        if (user != null && !user.isEmailVerified()) {
+            throw new DisabledException("Please verify your email first.");
+        }
+
+        Authentication authenticatedUser;
+        try {
+            // Authenticate password
+            // A login token is created:
+            // authenticationManager.authenticate(...):-
+            // Calls your UserDetailsService, Loads user from database using email, Gets stored hashed password, Uses PasswordEncoder to compare passwords
+            authenticatedUser = authenticationManager.authenticate( // If email & password are correct → authenticatedUser is returned, else exception thrown...
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
+
+        } catch (AuthenticationException ex) {
+
+            log.error("Authentication failed with exception: {}", ex.getClass().getSimpleName());
+
+            // Only update failed attempts if user exists
+            if (user != null) {
+
+                // increment failed attempts...
+                user.setFailedAttempts(user.getFailedAttempts() + 1);
+                user.setLastFailedAttempt(LocalDateTime.now());
+
+                log.info("Failed attempts of {} is: {}", user.getEmail(), user.getFailedAttempts());
+
+                if (user.getFailedAttempts() >= authLoginMaxAttempts) {
+                    user.setAccountLocked(true);
+                    user.setLockTime(LocalDateTime.now());
+                }
+
+                userRepository.save(user);
+            }
+            throw new BadCredentialsException("Invalid credentials");
+        }
+
+        // Reset failed attempts after successful login...
+        user.setFailedAttempts(0);
+        user.setLockTime(null);
+        user.setLastLoginIp(ip);
+        user.setLastLoginDevice(userAgent);
+        user.setLastLoginAt(LocalDateTime.now());
+        user.setLastFailedAttempt(null);
+
+        // Extract user roles:
+        List<String> roles = authenticatedUser.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        // Creating the kafka event...
+        UserLoginEvent loginEvent = new UserLoginEvent(
+                request.getEmail(),
+                ip,
+                userAgent
+        );
+
+        // Publishing the kafka event: (only after DB commit)
+        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        loginEventProducer.publishUserLoginEventSuccess(loginEvent);
+                    }
+                }
+        );
+
+        // Generate JWT token:
+        return jwtUtils.generateToken(request.getEmail(), roles);
+    }
+
 
     @Transactional
     public void saveNewUser(SignupRequest request) {
@@ -96,7 +215,6 @@ public class AuthService {
 
         // Creating the Kafka Event...
         UserRegisteredEvent event = new UserRegisteredEvent(
-                newUser.getUserId(),
                 request.getEmail(),
                 tokenValue
         );
@@ -167,7 +285,7 @@ public class AuthService {
         if (latestTokenOpt.isPresent()) {
             EmailVerificationToken latestToken = latestTokenOpt.get();
             // CoolDown of 2 mins...
-            if (latestToken.getCreatedAt().plusMinutes(2)
+            if (latestToken.getCreatedAt().plusMinutes(cooldownMinutes)
                     .isAfter(LocalDateTime.now())) {
                 throw new TooManyRequestsException("Please wait before requesting another verification email.");
             }
@@ -201,7 +319,6 @@ public class AuthService {
 
         // Publish event
         UserRegisteredEvent event = new UserRegisteredEvent(
-                user.getUserId(),
                 user.getEmail(),
                 newTokenValue
         );

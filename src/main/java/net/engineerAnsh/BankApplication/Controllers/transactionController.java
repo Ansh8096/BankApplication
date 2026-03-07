@@ -1,5 +1,6 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.transaction.DepositRequest;
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
@@ -14,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.*;
+
 import java.time.LocalDate;
 
 @RestController
@@ -26,19 +28,19 @@ public class transactionController {
 
 
     @PostMapping("/transfer")
-    public ResponseEntity<?> transferMoney(@RequestBody TransferRequest request) throws AccessDeniedException {
+    public ResponseEntity<?> transferMoney(@RequestBody TransferRequest request) throws AccessDeniedException, JsonProcessingException {
         TransactionResponse transactionResponse = transactionService.transferMoneyBetweenAccounts(request);
         return ResponseEntity.ok().body(transactionResponse);
     }
 
     @PostMapping("/deposit")
-    public ResponseEntity<?> depositMoney(@RequestBody DepositRequest request) throws AccessDeniedException {
+    public ResponseEntity<?> depositMoney(@RequestBody DepositRequest request) throws AccessDeniedException, JsonProcessingException {
         TransactionResponse transactionResponse = transactionService.depositMoneyToTheAccount(request);
         return ResponseEntity.ok().body(transactionResponse);
     }
 
     @PostMapping("/withdraw")
-    public ResponseEntity<?> withdrawMoney(@RequestBody WithdrawRequest request) throws AccessDeniedException {
+    public ResponseEntity<?> withdrawMoney(@RequestBody WithdrawRequest request) throws AccessDeniedException, JsonProcessingException {
         TransactionResponse transactionResponse = transactionService.withdrawMoneyFromTheAccount(request);
         return ResponseEntity.ok().body(transactionResponse);
     }

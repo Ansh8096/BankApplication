@@ -1,24 +1,29 @@
 package net.engineerAnsh.BankApplication.Services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.Auth.LoginRequest;
 import net.engineerAnsh.BankApplication.Dto.Auth.SignupRequest;
 import net.engineerAnsh.BankApplication.Entity.EmailVerificationToken;
+import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;
+import net.engineerAnsh.BankApplication.Enum.OutboxEventType;
+import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
 import net.engineerAnsh.BankApplication.Kafka.Producer.UserLoginEventProducer;
 import net.engineerAnsh.BankApplication.Kafka.Producer.UserRegisteredEventProducer;
 import net.engineerAnsh.BankApplication.Repository.EmailVerificationTokenRepository;
+import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import net.engineerAnsh.BankApplication.Security.Jwt.JwtUtils;
 import net.engineerAnsh.BankApplication.exception.InvalidTokenException;
 import net.engineerAnsh.BankApplication.exception.TokenExpiredException;
 import net.engineerAnsh.BankApplication.exception.TooManyRequestsException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -27,8 +32,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -42,10 +45,10 @@ public class AuthService {
     private final EmailVerificationTokenRepository tokenRepository;
     private final UserRepository userRepository;
     private final UserService userService;
-    private final UserRegisteredEventProducer registeredEventProducer;
-    private final UserLoginEventProducer loginEventProducer;
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
     private static final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Value("${app.verification.cooldown-minutes}")
@@ -63,30 +66,18 @@ public class AuthService {
     @Value("${auth.login.max-attempts}")
     private int authLoginMaxAttempts;
 
-    private final RedisTemplate redisTemplate;
-
-    public void sampleData(String k, String v) {
-        try {
-            redisTemplate.opsForValue().set(k, v);
-        } catch (Exception e) {
-            log.error("error occurred", e);
-            throw new RuntimeException("Redis error occurred...");
-
-        }
-    }
-
     @Transactional(noRollbackFor = BadCredentialsException.class)
-    public String performLogin(LoginRequest request, String ip, String userAgent) {
+    public String performLogin(LoginRequest request, String ip, String userAgent) throws JsonProcessingException {
 
         String email = request.getEmail();
 
-        // Try to fetch user (may be null)
+        // Try to fetch user (it may be null)...
         User user = userRepository.findByEmailAndActiveTrue(email).orElse(null);
 
-        // If user exists, check account lock
+        // If user exists, check account lock...
         if (user != null && user.isAccountLocked()) {
 
-            // Auto-unlock after 30 minutes
+            // Auto-unlock after 30 minutes...
             if (user.getLockTime() != null &&
                     user.getLockTime()
                             .plusMinutes(authLoginLockDuration)
@@ -128,7 +119,7 @@ public class AuthService {
                 user.setFailedAttempts(user.getFailedAttempts() + 1);
                 user.setLastFailedAttempt(LocalDateTime.now());
 
-                log.info("Failed attempts of {} is: {}", user.getEmail(), user.getFailedAttempts());
+                log.info("Failed attempts for {} is: {}", user.getEmail(), user.getFailedAttempts());
 
                 if (user.getFailedAttempts() >= authLoginMaxAttempts) {
                     user.setAccountLocked(true);
@@ -139,6 +130,8 @@ public class AuthService {
             }
             throw new BadCredentialsException("Invalid credentials");
         }
+
+        if (user == null) throw new BadCredentialsException("Invalid credentials"); // very rare...
 
         // Reset failed attempts after successful login...
         user.setFailedAttempts(0);
@@ -154,23 +147,25 @@ public class AuthService {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
-        // Creating the kafka event...
+        // Creating the login event...
         UserLoginEvent loginEvent = new UserLoginEvent(
                 request.getEmail(),
                 ip,
-                userAgent
+                userAgent,
+                LocalDateTime.now()
         );
 
-        // Publishing the kafka event: (only after DB commit)
-        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        loginEventProducer.publishUserLoginEventSuccess(loginEvent);
-                    }
-                }
-        );
+        // Create login Event Payload...
+        String payload = objectMapper.writeValueAsString(loginEvent);
+
+        // Saving Outbox Event...
+        OutboxEvent outboxEvent = OutboxEvent.builder()
+                .eventType(OutboxEventType.USER_LOGIN)
+                .payload(payload)
+                .status(OutboxStatus.PENDING)
+                .retryCount(0)
+                .build();
+        outboxEventRepository.save(outboxEvent);
 
         // Generate JWT token:
         return jwtUtils.generateToken(request.getEmail(), roles);
@@ -178,7 +173,7 @@ public class AuthService {
 
 
     @Transactional
-    public void saveNewUser(SignupRequest request) {
+    public void saveNewUser(SignupRequest request) throws JsonProcessingException {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already registered");
@@ -213,22 +208,25 @@ public class AuthService {
                 .build();
         tokenRepository.save(token);
 
-        // Creating the Kafka Event...
+        // Creating Signup Event Payload...
         UserRegisteredEvent event = new UserRegisteredEvent(
                 request.getEmail(),
-                tokenValue
+                tokenValue,
+                LocalDateTime.now()
         );
 
-        // Publishing the kafka event: (only after DB commit)
-        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        registeredEventProducer.publishUserRegistrationEventSuccess(event);
-                    }
-                }
-        );
+        // Create Signup Event Payload...
+        String payload = objectMapper.writeValueAsString(event);
+
+        // Saving Outbox Event...
+        OutboxEvent outboxEvent = OutboxEvent.builder()
+                .eventType(OutboxEventType.USER_REGISTERED)
+                .payload(payload)
+                .status(OutboxStatus.PENDING)
+                .retryCount(0)
+                .build();
+
+        outboxEventRepository.save(outboxEvent);
     }
 
     @Transactional
@@ -263,7 +261,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void resendVerification(String email) {
+    public void resendVerification(String email) throws JsonProcessingException {
 
         // If two resend requests hit at the exact same millisecond, we prevent both from generating tokens by using 'findByEmailForUpdate()' query...
         User user = userRepository.findByEmailForUpdate(email)
@@ -317,20 +315,25 @@ public class AuthService {
 
         tokenRepository.save(newToken);
 
-        // Publish event
+        // Creating Signup Event Payload...
         UserRegisteredEvent event = new UserRegisteredEvent(
-                user.getEmail(),
-                newTokenValue
+                email,
+                newTokenValue,
+                LocalDateTime.now()
         );
 
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        registeredEventProducer.publishUserRegistrationEventSuccess(event);
-                    }
-                }
-        );
+        // Create Signup Event Payload...
+        String payload = objectMapper.writeValueAsString(event);
+
+        // Saving Outbox Event...
+        OutboxEvent outboxEvent = OutboxEvent.builder()
+                .eventType(OutboxEventType.USER_REGISTERED)
+                .payload(payload)
+                .status(OutboxStatus.PENDING)
+                .retryCount(0)
+                .build();
+
+        outboxEventRepository.save(outboxEvent);
     }
 }
 

@@ -1,5 +1,6 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> signUp(
-            @Valid @RequestBody SignupRequest request) { // @Valid → checks validations (email not empty, password not empty)...
+            @Valid @RequestBody SignupRequest request) throws JsonProcessingException { // @Valid → checks validations (email not empty, password not empty)...
         authService.saveNewUser(request);
         URI locationOfUser = URI.create("/account/" + request.getEmail());
         return ResponseEntity.created(locationOfUser).body(new SignupResponse("Registration successful. Please verify your email."));
@@ -40,7 +41,7 @@ public class AuthController {
     public ResponseEntity<?> loginTheUser(
             // @Valid → checks validations (email not empty, password not empty)...
             @Valid @RequestBody LoginRequest request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest) throws JsonProcessingException {
 
         // Rate limiting...
         String email = request.getEmail();
@@ -88,7 +89,7 @@ public class AuthController {
     @PostMapping("/resend-verification")
     public ResponseEntity<?> resendVerification(
             @Valid @RequestBody ResendVerificationRequest request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest) throws JsonProcessingException {
 
         String email = request.getEmail();
         String ip = httpRequest.getHeader("X-Forwarded-For"); // best after deployment...

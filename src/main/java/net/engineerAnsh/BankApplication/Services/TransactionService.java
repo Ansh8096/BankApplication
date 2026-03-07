@@ -1,5 +1,7 @@
 package net.engineerAnsh.BankApplication.Services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,21 +12,18 @@ import net.engineerAnsh.BankApplication.Dto.transaction.TransactionResponse;
 import net.engineerAnsh.BankApplication.Dto.transaction.TransferRequest;
 import net.engineerAnsh.BankApplication.Dto.transaction.WithdrawRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
+import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
-import net.engineerAnsh.BankApplication.Enum.AccountStatus;
-import net.engineerAnsh.BankApplication.Enum.TransactionStatus;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.*;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
-import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
+import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,23 +41,37 @@ public class TransactionService {
     private final AccountService accountService;
     private final StatementBuilder statementBuilder;
     private final TransactionLimitService transactionLimitService;
-    private final TransactionEventProducer transactionEventProducer;
     private final LedgerService ledgerService;
+    private final ObjectMapper objectMapper;
+    private final OutboxEventRepository outboxEventRepository;
 
     private Account findTheActiveAccount(String accountNumber) {
-        return accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
+        return accountRepository.findAccountForUpdate(accountNumber, AccountStatus.ACTIVE)
                 .orElseThrow(() -> new EntityNotFoundException("No active account found"));
     }
 
-    public Account findActiveAccountAndValidate(String accountNumber) throws AccessDeniedException {
+    private void validateTheAccount(String userEmail) {
         String email = accountService.getEmailOfLoggedInUser();
-        Account account = accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
-                .orElseThrow(() -> new EntityNotFoundException("Account not found or is not active"));
-        // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
-        if (!account.getUser().getEmail().equals(email)) {
+        if (!userEmail.equals(email)) {
             log.error(AccountService.getNot_owner_msg());
             throw new AccessDeniedException(AccountService.getNot_owner_msg());
         }
+    }
+
+    private Account findAndValidateTheActiveAccountToReadOnly(String accountNumber) {
+        Account account = accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
+                .orElseThrow(() -> new EntityNotFoundException("No active account found"));
+
+        // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
+        validateTheAccount(account.getUser().getEmail());
+        return account;
+    }
+
+    public Account findActiveAccountAndValidate(String accountNumber) throws AccessDeniedException {
+        Account account = findTheActiveAccount(accountNumber);
+
+        // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
+        validateTheAccount(account.getUser().getEmail());
         return account;
     }
 
@@ -159,7 +172,7 @@ public class TransactionService {
     }
 
     private TransactionCompletedEvent buildEvent(Transaction txn, String userEmail) {
-        log.info("Started building the kafka event...");
+        log.info("Building transaction event. reference={}", txn.getTransactionReference());
         return new TransactionCompletedEvent(
                 UUID.randomUUID().toString(),
                 txn.getTransactionReference(),
@@ -180,7 +193,7 @@ public class TransactionService {
 
 
     private TransactionCompletedEvent buildSenderEvent(Transaction txn) {
-        log.info("Started building the kafka event for transaction completed for sender...");
+        log.info("Building Transfer event. reference={}", txn.getTransactionReference());
         return new TransactionCompletedEvent(
                 UUID.randomUUID().toString(),
                 txn.getTransactionReference(),
@@ -216,7 +229,7 @@ public class TransactionService {
     }
 
     // This method will return the 'TransactionResponse' of the 'transaction' if it exists, else return null...
-    private TransactionResponse handleIdempotency(String clientTransactionId){
+    private TransactionResponse handleIdempotency(String clientTransactionId) {
         return transactionRepository.findByClientTransactionId(clientTransactionId)
                 .map(this::mapToTransactionResponse)
                 .orElse(null);
@@ -224,30 +237,33 @@ public class TransactionService {
 
     private void validateClientTransactionId(String clientTransactionId) {
         if (clientTransactionId == null || clientTransactionId.isBlank()) {
-            throw new RuntimeException("clientTransactionId is required");
+            throw new IllegalArgumentException("clientTransactionId is required");
         }
     }
 
-    private void duplicateTransactionLog(String clientTransactionId){
-        log.info("Duplicate transaction detected. Returning existing result. clientTransactionId={}",clientTransactionId);
+    private void duplicateTransactionLog(String clientTransactionId) {
+        log.info("Duplicate transaction detected. Returning existing result. clientTransactionId={}", clientTransactionId);
     }
 
-    @Transactional
-    public TransactionResponse transferMoneyBetweenAccounts(TransferRequest request) throws AccessDeniedException {
-
-        validateClientTransactionId(request.getClientTransactionId());
-
-        TransactionResponse existingTransaction = handleIdempotency(request.getClientTransactionId());
-
+    private TransactionResponse checkIdempotency(String clientTxnId) {
+        TransactionResponse existing = handleIdempotency(clientTxnId);
         // return the previous result, if the same transaction is repeated...
-        if (existingTransaction != null) {
-            duplicateTransactionLog(request.getClientTransactionId());
-            return existingTransaction;
+        if (existing != null) {
+            duplicateTransactionLog(clientTxnId);
         }
+        return existing;
+    }
 
-        // Finding the active accounts via their account number...
-        Account from = findActiveAccountAndValidate(request.getFromAccountNumber()); // We also checks if the 'from' account belongs to loggedIn user or not...
-        Account to = findTheActiveAccount(request.getToAccountNumber()); // Verifying if the 'to' account exists or not...
+    private void validateBalance(String accountNo, BigDecimal amount) {
+
+        BigDecimal balance = ledgerService.calculateAccountBalance(accountNo);
+
+        if (balance.compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Insufficient balance");
+        }
+    }
+
+    private void validateTransferRequest(TransferRequest request, Account from) {
 
         // Prevent same-account transfer...
         if (request.getFromAccountNumber().equals(request.getToAccountNumber())) {
@@ -255,40 +271,126 @@ public class TransactionService {
         }
 
         // Throw exception if given 'amount' <= zero or exceeding the maximum transfer limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.TRANSFER, request.getAmount());
+        transactionLimitService.validatePerTransactionLimit(
+                TransactionType.TRANSFER,
+                request.getAmount()
+        );
 
         // Checking the daily limit of transfer...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.TRANSFER, request.getAmount(), from.getAccountNumber());
+        transactionLimitService.validateDailyTransactionLimit(
+                TransactionType.TRANSFER,
+                request.getAmount(),
+                from.getAccountNumber()
+        );
 
-        // Check balance using ledger...
-        BigDecimal currentBalance = ledgerService.calculateAccountBalance(request.getFromAccountNumber());
+        validateBalance(from.getAccountNumber(), request.getAmount());
 
-        if (currentBalance.compareTo(request.getAmount()) < 0) {
-            throw new IllegalArgumentException("Insufficient balance");
-        }
+    }
+
+    private Transaction createTransaction(
+            BigDecimal amount,
+            String clientTxnId,
+            Account from,
+            Account to,
+            TransactionType type,
+            String remark
+    ) {
 
         // Creating new transaction object to save the record in the table...
-        Transaction txn = new Transaction();
-        txn.setAmount(request.getAmount());
-        txn.setFromAccount(from);
-        txn.setToAccount(to);
-        txn.setRemark(request.getRemark());
-        txn.setType(TransactionType.TRANSFER);
-        txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setClientTransactionId(request.getClientTransactionId()); // idempotency field...
+        Transaction txn = Transaction.builder()
+                .amount(amount)
+                .fromAccount(from)
+                .toAccount(to)
+                .remark(remark)
+                .type(type)
+                .status(TransactionStatus.SUCCESS)
+                .clientTransactionId(clientTxnId) // idempotency field...
+                .build();
 
         // Handle race condition :
         // (PB: Two identical requests arrive at the same time, Both pass the “not found” check, Then both try to insert)
         // Solution: Catch the DB exception and return the existing transaction...
         try {
-            transactionRepository.save(txn); // save the transaction...
+            transactionRepository.save(txn);
         } catch (DataIntegrityViolationException ex) {
-            // Duplicate clientTransactionId detected
-            Transaction transaction = transactionRepository
-                    .findByClientTransactionId(request.getClientTransactionId())
+            // returning the existing transaction, we can map it to transferResponse afterwards...
+            return transactionRepository
+                    .findByClientTransactionId(clientTxnId)
                     .orElseThrow(() -> ex);
-            return mapToTransactionResponse(transaction);
         }
+
+        return txn;
+    }
+
+
+    private void saveOutboxEvent(Object event)
+            throws JsonProcessingException {
+
+        String payload = objectMapper.writeValueAsString(event);
+
+        OutboxEvent outboxEvent = OutboxEvent.builder()
+                .eventType(OutboxEventType.TRANSACTION_COMPLETED)
+                .payload(payload)
+                .status(OutboxStatus.PENDING)
+                .retryCount(0)
+                .build();
+
+        outboxEventRepository.save(outboxEvent);
+    }
+
+    private void saveTransferEvents(Transaction txn)
+            throws JsonProcessingException {
+
+        TransactionCompletedEvent senderEvent = buildSenderEvent(txn);
+        TransactionCompletedEvent receiverEvent = buildReceiverEvent(txn);
+
+        saveOutboxEvent(senderEvent);
+        saveOutboxEvent(receiverEvent);
+    }
+
+    private void validateLimits(TransactionType type, BigDecimal amount, String accountNo) {
+        // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
+        transactionLimitService.validatePerTransactionLimit(type, amount);
+        // Checking the daily limit of deposit...
+        transactionLimitService.validateDailyTransactionLimit(
+                type,
+                amount,
+                accountNo
+        );
+    }
+
+    private String resolveRemark(String remark, String defaultText) {
+        return (remark != null && !remark.isEmpty()) ? remark : defaultText;
+    }
+
+    private void saveTransactionEvent(Transaction txn, String email)
+            throws JsonProcessingException {
+
+        TransactionCompletedEvent event = buildEvent(txn, email);
+        saveOutboxEvent(event);
+    }
+
+    @Transactional
+    public TransactionResponse transferMoneyBetweenAccounts(TransferRequest request) throws AccessDeniedException, JsonProcessingException {
+
+        validateClientTransactionId(request.getClientTransactionId());
+
+        // Check Idempotency...
+        TransactionResponse existing = checkIdempotency(request.getClientTransactionId());
+        if (existing != null) return existing;
+
+        // Finding the active accounts via their account number...
+        Account from = findActiveAccountAndValidate(request.getFromAccountNumber()); // We also checks if the 'from' account belongs to loggedIn user or not...
+        Account to = findTheActiveAccount(request.getToAccountNumber()); // Verifying if the 'to' account exists or not...
+
+        // It will apply all the necessary validations to request...
+        validateTransferRequest(request, from);
+
+        // resolving remark...
+        String remark = resolveRemark(request.getRemark(), "Transferred money");
+
+        // Creating the transaction...
+        Transaction txn = createTransaction(request.getAmount(), request.getClientTransactionId(), from, to, TransactionType.TRANSFER, remark);
 
         // Ledger entries
         ledgerService.recordTransfer(
@@ -296,75 +398,43 @@ public class TransactionService {
                 to,
                 request.getAmount(),
                 txn.getTransactionReference(),
-                (request.getRemark() != null && !request.getRemark().isEmpty())
-                        ? request.getRemark()
-                        : "Transfer transaction"
+                remark
         );
 
-        // prepare kafka events...
-        TransactionCompletedEvent senderEvent = buildSenderEvent(txn);
-        TransactionCompletedEvent receiverEvent = buildReceiverEvent(txn);
-
-        // Publish kafka events only after DB commit...
-        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        transactionEventProducer.publishTransactionCompleted(senderEvent);
-                        transactionEventProducer.publishTransactionCompleted(receiverEvent);
-                    }
-                }
-        );
+        saveTransferEvents(txn);
 
         return mapToTransactionResponse(txn);
-
     }
 
     @Transactional
-    public TransactionResponse depositMoneyToTheAccount(DepositRequest request) throws AccessDeniedException {
+    public TransactionResponse depositMoneyToTheAccount(DepositRequest request) throws AccessDeniedException, JsonProcessingException {
 
         validateClientTransactionId(request.getClientTransactionId());
 
-        TransactionResponse existingTransaction = handleIdempotency(request.getClientTransactionId());
-
-        // return the previous result, if the same transaction is repeated...
-        if (existingTransaction != null) {
-            duplicateTransactionLog(request.getClientTransactionId());
-            return existingTransaction;
-        }
+        // Check Idempotency...
+        TransactionResponse existing = checkIdempotency(request.getClientTransactionId());
+        if (existing != null) return existing;
 
         // We check if the 'to' account exists or not...
         Account account = findTheActiveAccount(request.getAccountNo());
 
-        // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.DEPOSIT, request.getAmount());
+        // Validate the deposit limits...
+        validateLimits(TransactionType.DEPOSIT, request.getAmount(), request.getAccountNo());
 
-        // Checking the daily limit of deposit...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.DEPOSIT, request.getAmount(), request.getAccountNo());
+        // Resolving the remark...
+        String remark = resolveRemark(request.getRemark(), "Deposited money");
 
         // Creating new transaction object to save the record in the table...
-        Transaction txn = new Transaction();
-        txn.setToAccount(account);
-        txn.setType(TransactionType.DEPOSIT);
-        txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setAmount(request.getAmount());
-        String description = (request.getRemark() != null && !request.getRemark().isEmpty()) ? request.getRemark() : "Deposited money";
-        txn.setRemark(description);
-        txn.setClientTransactionId(request.getClientTransactionId());
+        Transaction txn = createTransaction(
+                request.getAmount(),
+                request.getClientTransactionId(),
+                null,
+                account,
+                TransactionType.DEPOSIT,
+                remark
+        );
 
-        try {
-            // save the transaction:
-            transactionRepository.save(txn);
-        } catch (DataIntegrityViolationException ex) {
-            // Duplicate clientTransactionId detected
-            Transaction transaction = transactionRepository
-                    .findByClientTransactionId(request.getClientTransactionId())
-                    .orElseThrow(() -> ex);
-            return mapToTransactionResponse(transaction);
-        }
-
-        // Ledger entries
+        // Saving Ledger entry...
         ledgerService.recordDeposit(
                 account,
                 request.getAmount(),
@@ -372,69 +442,42 @@ public class TransactionService {
                 txn.getRemark()
         );
 
-        // prepare the kafka event...
-        String userEmail = account.getUser().getEmail();
-        TransactionCompletedEvent event = buildEvent(txn, userEmail);
-
-        // Publish kafka events only after DB commit...
-        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        transactionEventProducer.publishTransactionCompleted(event);
-                    }
-                }
-        );
+        // Preparing and saving the withdrawal outbox event...
+        saveTransactionEvent(txn, account.getUser().getEmail());
 
         return mapToTransactionResponse(txn);
     }
 
     @Transactional
-    public TransactionResponse withdrawMoneyFromTheAccount(WithdrawRequest request) throws AccessDeniedException {
+    public TransactionResponse withdrawMoneyFromTheAccount(WithdrawRequest request) throws AccessDeniedException, JsonProcessingException {
 
         validateClientTransactionId(request.getClientTransactionId());
 
-        TransactionResponse existingTransaction = handleIdempotency(request.getClientTransactionId());
-
-        // return the previous result, if the same transaction is repeated...
-        if (existingTransaction != null) {
-            duplicateTransactionLog(request.getClientTransactionId());
-            return existingTransaction;
-        }
+        // Check Idempotency...
+        TransactionResponse existing = checkIdempotency(request.getClientTransactionId());
+        if (existing != null) return existing;
 
         // Finding the active account via account number...
         Account account = findActiveAccountAndValidate(request.getAccountNo()); // We also checks if the 'from' account belongs to loggedIn user or not...
 
-        // Throw exception if given 'amount' <= zero or exceeding the maximum withdraw limit...
-        transactionLimitService.validatePerTransactionLimit(TransactionType.WITHDRAW, request.getAmount());
+        // Validate withdraw limits...
+        validateLimits(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo());
 
-        // Checking the daily limit of withdrawal...
-        transactionLimitService.validateDailyTransactionLimit(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo());
+        // Validating balance...
+        validateBalance(account.getAccountNumber(), request.getAmount());
 
-        if(ledgerService.calculateAccountBalance(request.getAccountNo()).compareTo(request.getAmount()) < 0){
-            throw new IllegalArgumentException("Insufficient balance");
-        }
+        // Resolving the remark...
+        String remark = resolveRemark(request.getRemark(), "ATM Withdrawal");
 
         // Creating new transaction object to save the record in the table...
-        Transaction txn = new Transaction();
-        txn.setFromAccount(account);
-        txn.setType(TransactionType.WITHDRAW);
-        txn.setStatus(TransactionStatus.SUCCESS);
-        txn.setAmount(request.getAmount());
-        txn.setRemark(WithdrawRequest.getRemark());
-        txn.setClientTransactionId(request.getClientTransactionId());
-
-        try {
-            // save the transaction:
-            transactionRepository.save(txn);
-        } catch (DataIntegrityViolationException ex) {
-            // Duplicate clientTransactionId detected
-            Transaction transaction = transactionRepository
-                    .findByClientTransactionId(request.getClientTransactionId())
-                    .orElseThrow(() -> ex);
-            return mapToTransactionResponse(transaction);
-        }
+        Transaction txn = createTransaction(
+                request.getAmount(),
+                request.getClientTransactionId(),
+                account,
+                null,
+                TransactionType.WITHDRAW,
+                remark
+        );
 
         // Ledger entries
         ledgerService.recordWithdrawal(
@@ -444,20 +487,8 @@ public class TransactionService {
                 txn.getRemark()
         );
 
-        // prepare the kafka event...
-        String userEmail = account.getUser().getEmail();
-        TransactionCompletedEvent event = buildEvent(txn, userEmail);
-
-        // Publish kafka events only after DB commit...
-        // This block is used to delay our Kafka event publishing until after the database transaction successfully commits...
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        transactionEventProducer.publishTransactionCompleted(event);
-                    }
-                }
-        );
+        // Preparing and saving the withdrawal outbox event...
+        saveTransactionEvent(txn, account.getUser().getEmail());
 
         return mapToTransactionResponse(txn);
     }
@@ -469,7 +500,7 @@ public class TransactionService {
             LocalDate to
     ) {
         // Validate account ownership (API use case)...
-        Account account = findActiveAccountAndValidate(accountNumber);
+        Account account = findAndValidateTheActiveAccountToReadOnly(accountNumber);
 
         // Calling the internal implementation of the generating statement...
         return generateStatementInternal(account, accountNumber, from, to);
@@ -483,7 +514,7 @@ public class TransactionService {
     ) {
         // NO ownership validation (scheduler use case)...
         Account account = accountRepository.findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new EntityNotFoundException("An error occurred..."));
+                .orElseThrow(() -> new EntityNotFoundException("Account Not Found..."));
 
         // Calling the internal implementation of the generating statement...
         return generateStatementInternal(account, accountNumber, from, to);

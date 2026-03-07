@@ -21,6 +21,5 @@ public class WithdrawRequest {
     @NotBlank
     private String clientTransactionId;
 
-    @Getter
-    private static final String remark = "ATM Withdrawal";
+    private String remark;
 }

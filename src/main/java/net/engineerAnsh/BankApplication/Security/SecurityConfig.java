@@ -30,6 +30,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/admin/**").hasRole("ADMIN") // hasRole("ADMIN") → looks for ROLE_ADMIN or hasAuthority("ROLE_ADMIN") → looks for ROLE_ADMIN
                         .requestMatchers("/user/**", "/account/**").authenticated()
+                        .requestMatchers("/api/v1/kyc/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/kyc/**").hasRole("USER")
                         .anyRequest().permitAll()
                 )
                 .userDetailsService(customUserDetailsService) // giving the details of our user entity (or userDto which we created)

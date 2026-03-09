@@ -14,6 +14,16 @@ public class CustomUserDetails implements UserDetails {
         this.user = user;
     }
 
+    // This method will help us to get the user from Authentication...
+    public User getUser() {
+        return user;
+    }
+
+    // This method will help us to get the user's 'userId' from Authentication...
+    public Long getUserId() {
+        return user.getUserId();
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return user.getRoles()

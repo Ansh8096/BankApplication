@@ -113,6 +113,14 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
         );
         return new ResponseEntity<>(response, HttpStatus.GONE);
     }
+
+    @ExceptionHandler(KycNotVerifiedException.class)
+    public ResponseEntity<?> handleKycException(KycNotVerifiedException ex) {
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
 }
 
 

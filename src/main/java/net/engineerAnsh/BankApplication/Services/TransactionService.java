@@ -20,6 +20,7 @@ import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -169,6 +170,12 @@ public class TransactionService {
                         ? openingBalance
                         : statementRows.get(statementRows.size() - 1).getBalance()
         );
+    }
+
+    private void kycCheck(KycStatus status){
+        if(status != KycStatus.APPROVED){
+            throw new KycNotVerifiedException("KYC verification required");
+        }
     }
 
     private TransactionCompletedEvent buildEvent(Transaction txn, String userEmail) {
@@ -381,6 +388,10 @@ public class TransactionService {
 
         // Finding the active accounts via their account number...
         Account from = findActiveAccountAndValidate(request.getFromAccountNumber()); // We also checks if the 'from' account belongs to loggedIn user or not...
+
+        // verifying the kyc status of a user...
+        kycCheck(from.getUser().getKycStatus());
+
         Account to = findTheActiveAccount(request.getToAccountNumber()); // Verifying if the 'to' account exists or not...
 
         // It will apply all the necessary validations to request...
@@ -417,6 +428,9 @@ public class TransactionService {
 
         // We check if the 'to' account exists or not...
         Account account = findTheActiveAccount(request.getAccountNo());
+
+        // verifying the kyc status of a user...
+        kycCheck(account.getUser().getKycStatus());
 
         // Validate the deposit limits...
         validateLimits(TransactionType.DEPOSIT, request.getAmount(), request.getAccountNo());
@@ -459,6 +473,9 @@ public class TransactionService {
 
         // Finding the active account via account number...
         Account account = findActiveAccountAndValidate(request.getAccountNo()); // We also checks if the 'from' account belongs to loggedIn user or not...
+
+        // verifying the kyc status of a user...
+        kycCheck(account.getUser().getKycStatus());
 
         // Validate withdraw limits...
         validateLimits(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo());

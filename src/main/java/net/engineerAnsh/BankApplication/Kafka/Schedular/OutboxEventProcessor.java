@@ -6,9 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
+import net.engineerAnsh.BankApplication.Kafka.Event.KycEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
+import net.engineerAnsh.BankApplication.Kafka.Producer.KycEventProducer;
 import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
 import net.engineerAnsh.BankApplication.Kafka.Producer.UserLoginEventProducer;
 import net.engineerAnsh.BankApplication.Kafka.Producer.UserRegisteredEventProducer;
@@ -17,7 +19,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -31,9 +32,10 @@ public class OutboxEventProcessor {
     private final UserLoginEventProducer loginEventProducer;
     private final UserRegisteredEventProducer registeredEventProducer;
     private final TransactionEventProducer transactionEventProducer;
+    private final KycEventProducer kycEventProducer;
     private static final int MAX_RETRIES = 5;
 
-    @Scheduled(fixedDelayString = "${outbox.poll.interval:5000}")
+    @Scheduled(fixedDelayString = "${outbox.poll.interval}")
     @Transactional
     public void processOutboxEvents() {
 
@@ -109,6 +111,16 @@ public class OutboxEventProcessor {
                                 TransactionCompletedEvent.class
                         );
                 transactionEventProducer.publishTransactionCompleted(txnEvent);
+                break;
+
+            case KYC_EVENT:
+
+                KycEvent kycEvent =
+                        objectMapper.readValue(
+                                event.getPayload(),
+                                KycEvent.class
+                        );
+                kycEventProducer.kycEventPublish(kycEvent);
                 break;
 
             default:

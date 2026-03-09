@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import lombok.*;
+import net.engineerAnsh.BankApplication.Enum.KycStatus;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
@@ -55,8 +56,9 @@ public class User {
     @JsonIgnore // It tells Spring Boot: " Do NOT include this field when converting this object to JSON ”
     private List<Account> accounts = new ArrayList<>(); // we are not creating the column for this because user can have multiple accounts...
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "kyc_status", nullable = false)
-    private Boolean KycStatus;
+    private KycStatus kycStatus;
 
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;

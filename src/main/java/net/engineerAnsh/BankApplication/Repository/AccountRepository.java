@@ -2,7 +2,9 @@ package net.engineerAnsh.BankApplication.Repository;
 
 import jakarta.persistence.LockModeType;
 import net.engineerAnsh.BankApplication.Entity.Account;
+import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.AccountStatus;
+import net.engineerAnsh.BankApplication.Enum.AccountType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -46,5 +48,11 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     Optional<Account> findByAccountNumber(String accountNumber);
 
     Optional<Account> findByAccountNumberAndAccountStatusNot(String accountNumber, AccountStatus accountStatus);
+
+    boolean existsByUserAndAccountTypeAndAccountStatusNot(
+            User user,
+            AccountType accountType,
+            AccountStatus accountStatus
+    );
 
 }

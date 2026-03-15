@@ -29,5 +29,4 @@ public class UserRegisteredEventConsumer {
             log.error("Failed to send verification email to: {}", event.getEmail());
         }
     }
-
 }

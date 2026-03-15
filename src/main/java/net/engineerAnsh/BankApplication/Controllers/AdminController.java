@@ -1,12 +1,15 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.Auth.AssignRoleRequest;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Entity.User;
+import net.engineerAnsh.BankApplication.Services.AccountService;
 import net.engineerAnsh.BankApplication.Services.AdminStatementService;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.time.YearMonth;
@@ -23,6 +26,7 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
     private final UserService userService;
     private final AdminStatementService adminStatementService;
     private final EmailServiceImpl emailService;
+    private final AccountService accountService;
 
     @GetMapping("/get-all-users")
     public ResponseEntity<List<User>> getAllUsers() {
@@ -78,4 +82,26 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
                 )
         );
     }
+
+    @PatchMapping("/account/activate/{accountNumber}")
+    public ResponseEntity<?> activateAccountByAccountNo(@PathVariable String accountNumber)
+            throws AccessDeniedException, JsonProcessingException {
+        accountService.activateTheAccount(accountNumber);
+        return ResponseEntity.ok().body("Account is successfully activated...");
+    }
+
+    @PatchMapping("/account/block/{accountNumber}")
+    public ResponseEntity<?> blockAccountByAccountNo(@PathVariable String accountNumber)
+            throws AccessDeniedException, JsonProcessingException {
+        accountService.blockTheAccountByAccountNumber(accountNumber);
+        return ResponseEntity.ok().body("Account is successfully blocked...");
+    }
+
+    @PutMapping("/account/close/{accountNumber}")
+    public ResponseEntity<?> closeAccountByAccountNo(@PathVariable String accountNumber)
+            throws AccessDeniedException, JsonProcessingException {
+        accountService.closeTheAccount(accountNumber);
+        return ResponseEntity.ok().body("Account is successfully closed...");
+    }
+
 }

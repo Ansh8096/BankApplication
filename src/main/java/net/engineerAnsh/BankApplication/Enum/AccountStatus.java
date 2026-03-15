@@ -4,6 +4,5 @@ public enum AccountStatus {
     ACTIVE,
     FROZEN,          // user freeze
     BLOCKED,         // fraud/admin block
-    CLOSURE_REQUESTED,
     CLOSED
 }

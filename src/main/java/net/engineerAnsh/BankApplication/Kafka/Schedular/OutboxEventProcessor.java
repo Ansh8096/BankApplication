@@ -6,14 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
-import net.engineerAnsh.BankApplication.Kafka.Event.KycEvent;
-import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
-import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
-import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
-import net.engineerAnsh.BankApplication.Kafka.Producer.KycEventProducer;
-import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
-import net.engineerAnsh.BankApplication.Kafka.Producer.UserLoginEventProducer;
-import net.engineerAnsh.BankApplication.Kafka.Producer.UserRegisteredEventProducer;
+import net.engineerAnsh.BankApplication.Kafka.Event.*;
+import net.engineerAnsh.BankApplication.Kafka.Producer.*;
 import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -33,7 +27,60 @@ public class OutboxEventProcessor {
     private final UserRegisteredEventProducer registeredEventProducer;
     private final TransactionEventProducer transactionEventProducer;
     private final KycEventProducer kycEventProducer;
+    private final AccountEventProducer accountEventProducer;
     private static final int MAX_RETRIES = 5;
+
+    private void publishEvent(OutboxEvent event) throws JsonProcessingException {
+        switch (event.getEventType()) {
+            case USER_REGISTERED:
+                UserRegisteredEvent registeredEvent =
+                        objectMapper.readValue(
+                                event.getPayload(),
+                                UserRegisteredEvent.class
+                        );
+                registeredEventProducer.publishUserRegistrationEventSuccess(registeredEvent);
+                break;
+
+            case USER_LOGIN:
+                UserLoginEvent loginEvent =
+                        objectMapper.readValue(
+                                event.getPayload(),
+                                UserLoginEvent.class
+                        );
+                loginEventProducer.publishUserLoginEventSuccess(loginEvent);
+                break;
+
+            case TRANSACTION_COMPLETED:
+                TransactionCompletedEvent txnEvent =
+                        objectMapper.readValue(
+                                event.getPayload(),
+                                TransactionCompletedEvent.class
+                        );
+                transactionEventProducer.publishTransactionCompleted(txnEvent);
+                break;
+
+            case KYC_EVENT:
+                KycEvent kycEvent =
+                        objectMapper.readValue(
+                                event.getPayload(),
+                                KycEvent.class
+                        );
+                kycEventProducer.kycEventPublish(kycEvent);
+                break;
+
+            case ACCOUNT_NOTIFICATION:
+                AccountNotificationEvent accountEvent =
+                        objectMapper.readValue(
+                                event.getPayload(),
+                                AccountNotificationEvent.class
+                        );
+                accountEventProducer.accountEventPublish(accountEvent);
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown event type: " + event.getEventType());
+        }
+    }
 
     @Scheduled(fixedDelayString = "${outbox.poll.interval}")
     @Transactional
@@ -46,6 +93,7 @@ public class OutboxEventProcessor {
                 );
 
         if (events.isEmpty()) {
+            log.info("No kafka events are available in outbox table");
             return;
         }
 
@@ -82,51 +130,5 @@ public class OutboxEventProcessor {
             outboxEventRepository.save(event);
         }
     }
-
-    private void publishEvent(OutboxEvent event) throws JsonProcessingException {
-
-        switch (event.getEventType()) {
-            case USER_REGISTERED:
-                UserRegisteredEvent registeredEvent =
-                        objectMapper.readValue(
-                                event.getPayload(),
-                                UserRegisteredEvent.class
-                        );
-                registeredEventProducer.publishUserRegistrationEventSuccess(registeredEvent);
-                break;
-
-            case USER_LOGIN:
-                UserLoginEvent loginEvent =
-                        objectMapper.readValue(
-                                event.getPayload(),
-                                UserLoginEvent.class
-                        );
-                loginEventProducer.publishUserLoginEventSuccess(loginEvent);
-                break;
-
-            case TRANSACTION_COMPLETED:
-                TransactionCompletedEvent txnEvent =
-                        objectMapper.readValue(
-                                event.getPayload(),
-                                TransactionCompletedEvent.class
-                        );
-                transactionEventProducer.publishTransactionCompleted(txnEvent);
-                break;
-
-            case KYC_EVENT:
-
-                KycEvent kycEvent =
-                        objectMapper.readValue(
-                                event.getPayload(),
-                                KycEvent.class
-                        );
-                kycEventProducer.kycEventPublish(kycEvent);
-                break;
-
-            default:
-                throw new IllegalArgumentException("Unknown event type: " + event.getEventType());
-        }
-    }
-
 }
 

@@ -1,10 +1,14 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.Account.CreateAccountDto;
+import net.engineerAnsh.BankApplication.Security.UserDetails.CustomUserDetails;
 import net.engineerAnsh.BankApplication.Services.AccountService;
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -20,8 +24,9 @@ public class AccountController {
     private final AccountService accountService;
 
     @PostMapping("/create-new-account") // PostMapping not PutMapping (because we are creating the resource)
-    public ResponseEntity<?> createAccountForUser(@Valid @RequestBody CreateAccountDto account) {
-        Long accountId = accountService.saveNewAccount(account.getAccountType());
+    public ResponseEntity<?> createAccountForUser(@Valid @RequestBody CreateAccountDto account,
+                                                  @AuthenticationPrincipal CustomUserDetails user) throws BadRequestException, JsonProcessingException {
+        Long accountId = accountService.saveNewAccount(user.getUsername(), account.getAccountType());
 
         // this is the location where this entity is saved...
         URI locationOfAccount = ServletUriComponentsBuilder
@@ -34,35 +39,24 @@ public class AccountController {
     }
 
     @GetMapping("/get-account/{accountNumber}")
-    public ResponseEntity<?> getAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
-        return ResponseEntity.ok().body(accountService.getTheAccountByAccountNumber(accountNumber));
+    public ResponseEntity<?> getAccountByAccountNo(@AuthenticationPrincipal CustomUserDetails user,
+                                                   @PathVariable String accountNumber) throws AccessDeniedException {
+        return ResponseEntity.ok().body(accountService.getTheAccountByAccountNumber(user.getUsername(), accountNumber));
     }
 
-    @PutMapping("/block/{accountNumber}")
-    public ResponseEntity<?> blockAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
-        boolean isBloocked = accountService.blockTheAccountByAccountNumber(accountNumber);
-        if (isBloocked) return ResponseEntity.ok().build();
-        else return ResponseEntity.ok().body("Account is already blocked");
-    }
-
-    @PutMapping("/activate/{accountNumber}")
-    public ResponseEntity<?> activateAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
-        boolean isActivate = accountService.activateTheAccountByAccountNumber(accountNumber);
-        if (isActivate) return ResponseEntity.ok().build();
-        else return ResponseEntity.ok().body("Account is already activated");
-    }
-
-    @PutMapping("/close/{accountNumber}")
-    public ResponseEntity<?> closeAccountByAccountNo(@PathVariable String accountNumber) throws AccessDeniedException {
-        boolean isClosed = accountService.closeTheAccountByAccountNumber(accountNumber);
-        if (isClosed) return ResponseEntity.ok().build();
-        else return ResponseEntity.ok().body("Account is already closed");
+    @PatchMapping("/freeze/{accountNumber}")
+    public ResponseEntity<?> freezeAccountByAccountNo(@AuthenticationPrincipal CustomUserDetails user,
+                                                     @PathVariable String accountNumber)
+            throws AccessDeniedException, JsonProcessingException {
+        accountService.freezeTheAccountByAccountNumber(user.getUsername(),accountNumber);
+        return ResponseEntity.ok().body("Account is successfully frozen...");
     }
 
     @GetMapping("/get-account-balance/{accountNumber}")
-    public ResponseEntity<?> getTheAccountBalanceByAccountNumber(@PathVariable String accountNumber) throws AccessDeniedException {
-        BigDecimal balance = accountService.getTheAccountBalanceByAccountNumber(accountNumber);
+    public ResponseEntity<?> getTheAccountBalanceByAccountNumber(@AuthenticationPrincipal CustomUserDetails user,
+                                                                 @PathVariable String accountNumber)
+            throws AccessDeniedException {
+        BigDecimal balance = accountService.getTheAccountBalanceByAccountNumber(user.getUsername(), accountNumber);
         return ResponseEntity.ok().body("Account Balance: " + balance);
     }
-
 }

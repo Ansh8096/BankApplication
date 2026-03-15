@@ -94,7 +94,7 @@ public class KycService {
                 null
         );
 
-        user.setKycStatus(KycStatus.SUBMITTED);
+        user.setKycStatus(KycStatus.UNDER_REVIEW);
         userRepository.save(user);
 
         buildAndSaveOutboxEvent(kycSubmitEvent);

@@ -4,5 +4,6 @@ public enum OutboxEventType {
     USER_REGISTERED,
     USER_LOGIN,
     TRANSACTION_COMPLETED,
-    KYC_EVENT
+    KYC_EVENT,
+    ACCOUNT_NOTIFICATION
 }

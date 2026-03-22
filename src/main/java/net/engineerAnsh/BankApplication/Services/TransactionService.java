@@ -1,7 +1,6 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,16 +11,17 @@ import net.engineerAnsh.BankApplication.Dto.transaction.TransactionResponse;
 import net.engineerAnsh.BankApplication.Dto.transaction.TransferRequest;
 import net.engineerAnsh.BankApplication.Dto.transaction.WithdrawRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
-import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
+import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.*;
-import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
+import net.engineerAnsh.BankApplication.Fraud.FraudDetectionService;
+import net.engineerAnsh.BankApplication.Fraud.FraudEvaluationResult;
+import net.engineerAnsh.BankApplication.Fraud.TransactionContext;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
-import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.exception.FraudDetectedException;
 import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +30,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -41,59 +40,71 @@ public class TransactionService {
     private final AccountRepository accountRepository;
     private final AccountService accountService;
     private final StatementBuilder statementBuilder;
+    private final FraudDetectionService fraudDetectionService;
+    private final TransactionExecutionService transactionExecutionService;
     private final TransactionLimitService transactionLimitService;
     private final LedgerService ledgerService;
-    private final ObjectMapper objectMapper;
-    private final OutboxEventRepository outboxEventRepository;
+    private static final String KYC_REQ = "KYC verification required";
 
-    private Account findTheActiveAccount(String accountNumber) {
-        return accountRepository.findAccountForUpdate(accountNumber, AccountStatus.ACTIVE)
-                .orElseThrow(() -> new EntityNotFoundException("No active account found"));
-    }
+    public void validateBalance(String accountNo, BigDecimal amount) {
 
-    private void validateTheAccount(String userEmail) {
-        String email = accountService.getEmailOfLoggedInUser();
-        if (!userEmail.equals(email)) {
-            log.error(AccountService.getNot_owner_msg());
-            throw new AccessDeniedException(AccountService.getNot_owner_msg());
+        BigDecimal balance = ledgerService.calculateAccountBalance(accountNo);
+
+        if (balance.compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Insufficient balance");
         }
     }
 
-    private Account findAndValidateTheActiveAccountToReadOnly(String accountNumber) {
-        Account account = accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
-                .orElseThrow(() -> new EntityNotFoundException("No active account found"));
-
-        // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
-        validateTheAccount(account.getUser().getEmail());
-        return account;
-    }
-
-    public Account findActiveAccountAndValidate(String accountNumber) throws AccessDeniedException {
-        Account account = findTheActiveAccount(accountNumber);
-
-        // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
-        validateTheAccount(account.getUser().getEmail());
-        return account;
-    }
-
-    private TransactionResponse mapToTransactionResponse(Transaction txn) {
-        // I'm able to set all the values in the constructor like this, because of the notations of constructors on 'TransactionResponse'...
-        return new TransactionResponse(
-                txn.getTransactionReference(),
-                txn.getFromAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(
-                        txn.getFromAccount().getAccountNumber())
-                        : null,
-                txn.getToAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(
-                        txn.getToAccount().getAccountNumber())
-                        : null,
-                txn.getAmount(),
-                txn.getType(),
-                txn.getStatus(),
-                txn.getRemark(),
-                txn.getCreatedAt()
+    public void validateLimits(TransactionType type, BigDecimal amount, String accountNo) {
+        // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
+        transactionLimitService.validatePerTransactionLimit(type, amount);
+        // Checking the daily limit of deposit...
+        transactionLimitService.validateDailyTransactionLimit(
+                type,
+                amount,
+                accountNo
         );
+    }
+
+    public void validateTransferRequest(TransferRequest request, Account from) {
+
+        // Prevent same-account transfer...
+        if (request.getFromAccountNumber().equals(request.getToAccountNumber())) {
+            throw new IllegalArgumentException("Cannot transfer to same account");
+        }
+
+        // Throw exception if given 'amount' <= zero or exceeding the maximum transfer limit...
+        transactionLimitService.validatePerTransactionLimit(
+                TransactionType.TRANSFER,
+                request.getAmount()
+        );
+
+        // Checking the daily limit of transfer...
+        transactionLimitService.validateDailyTransactionLimit(
+                TransactionType.TRANSFER,
+                request.getAmount(),
+                from.getAccountNumber()
+        );
+
+        validateBalance(from.getAccountNumber(), request.getAmount());
+    }
+
+    private Account findAccountForRead(String accountNumber) {
+        return accountRepository.findByAccountNumberAndAccountStatus(accountNumber, AccountStatus.ACTIVE)
+                .orElseThrow(() -> new EntityNotFoundException("No active account found"));
+    }
+
+    private Account findAndValidateAccountForRead(String accountNumber) {
+        Account account = findAccountForRead(accountNumber);
+        // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
+        String email = accountService.getEmailOfLoggedInUser();
+
+        // Validate ownership...
+        if (!account.getUser().getEmail().equals(email)) {
+            log.error(AccountService.getNot_owner_msg());
+            throw new AccessDeniedException(AccountService.getNot_owner_msg());
+        }
+        return account;
     }
 
     private BigDecimal calculateOpeningBalanceForTransactions(
@@ -172,73 +183,16 @@ public class TransactionService {
         );
     }
 
-    private void kycCheck(KycStatus status){
-        if(status != KycStatus.APPROVED){
-            throw new KycNotVerifiedException("KYC verification required");
+    private void kycCheck(KycStatus status, String message) {
+        if (status != KycStatus.APPROVED) {
+            throw new KycNotVerifiedException(message);
         }
-    }
-
-    private TransactionCompletedEvent buildEvent(Transaction txn, String userEmail) {
-        log.info("Building transaction event. reference={}", txn.getTransactionReference());
-        return new TransactionCompletedEvent(
-                UUID.randomUUID().toString(),
-                txn.getTransactionReference(),
-                txn.getType().name(),
-                txn.getStatus().name(),
-                txn.getAmount(),
-                txn.getFromAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
-                        : null,
-                txn.getToAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
-                        : null,
-                txn.getCreatedAt(),
-                userEmail,
-                txn.getRemark()
-        );
-    }
-
-
-    private TransactionCompletedEvent buildSenderEvent(Transaction txn) {
-        log.info("Building Transfer event. reference={}", txn.getTransactionReference());
-        return new TransactionCompletedEvent(
-                UUID.randomUUID().toString(),
-                txn.getTransactionReference(),
-                "TRANSFER_SENT",
-                txn.getStatus().name(),
-                txn.getAmount(),
-                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
-                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
-                txn.getCreatedAt(),
-                txn.getFromAccount().getUser().getEmail(),
-                (txn.getRemark() != null && !txn.getRemark().isEmpty())
-                        ? txn.getRemark()
-                        : txn.getAmount() + " Sent to A/C " + AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
-        );
-    }
-
-    private TransactionCompletedEvent buildReceiverEvent(Transaction txn) {
-        log.info("Started building the kafka event for transaction completed for receiver...");
-        return new TransactionCompletedEvent(
-                UUID.randomUUID().toString(),
-                txn.getTransactionReference(),
-                "TRANSFER_RECEIVED",
-                txn.getStatus().name(),
-                txn.getAmount(),
-                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
-                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
-                txn.getCreatedAt(),
-                txn.getToAccount().getUser().getEmail(),
-                (txn.getRemark() != null && !txn.getRemark().isEmpty())
-                        ? txn.getRemark()
-                        : txn.getAmount() + " Received from A/C " + AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
-        );
     }
 
     // This method will return the 'TransactionResponse' of the 'transaction' if it exists, else return null...
     private TransactionResponse handleIdempotency(String clientTransactionId) {
         return transactionRepository.findByClientTransactionId(clientTransactionId)
-                .map(this::mapToTransactionResponse)
+                .map(transactionExecutionService::mapToTransactionResponse)
                 .orElse(null);
     }
 
@@ -248,266 +202,149 @@ public class TransactionService {
         }
     }
 
-    private void duplicateTransactionLog(String clientTransactionId) {
-        log.info("Duplicate transaction detected. Returning existing result. clientTransactionId={}", clientTransactionId);
-    }
-
     private TransactionResponse checkIdempotency(String clientTxnId) {
         TransactionResponse existing = handleIdempotency(clientTxnId);
         // return the previous result, if the same transaction is repeated...
         if (existing != null) {
-            duplicateTransactionLog(clientTxnId);
+            log.info("Duplicate transaction detected. Returning existing result. clientTransactionId={}", clientTxnId);
         }
         return existing;
     }
 
-    private void validateBalance(String accountNo, BigDecimal amount) {
-
-        BigDecimal balance = ledgerService.calculateAccountBalance(accountNo);
-
-        if (balance.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("Insufficient balance");
-        }
-    }
-
-    private void validateTransferRequest(TransferRequest request, Account from) {
-
-        // Prevent same-account transfer...
-        if (request.getFromAccountNumber().equals(request.getToAccountNumber())) {
-            throw new IllegalArgumentException("Cannot transfer to same account");
-        }
-
-        // Throw exception if given 'amount' <= zero or exceeding the maximum transfer limit...
-        transactionLimitService.validatePerTransactionLimit(
-                TransactionType.TRANSFER,
-                request.getAmount()
-        );
-
-        // Checking the daily limit of transfer...
-        transactionLimitService.validateDailyTransactionLimit(
-                TransactionType.TRANSFER,
-                request.getAmount(),
-                from.getAccountNumber()
-        );
-
-        validateBalance(from.getAccountNumber(), request.getAmount());
-
-    }
-
-    private Transaction createTransaction(
-            BigDecimal amount,
-            String clientTxnId,
-            Account from,
-            Account to,
-            TransactionType type,
-            String remark
-    ) {
-
-        // Creating new transaction object to save the record in the table...
-        Transaction txn = Transaction.builder()
-                .amount(amount)
-                .fromAccount(from)
-                .toAccount(to)
-                .remark(remark)
-                .type(type)
-                .status(TransactionStatus.SUCCESS)
-                .clientTransactionId(clientTxnId) // idempotency field...
+    private TransactionContext createTransactionContext(User user, Account sourceAccount, BigDecimal requestAmount, TransactionType transactionType) {
+        return TransactionContext.builder()
+                .userId(user.getUserId())
+                .accountNumber(sourceAccount.getAccountNumber())
+                .amount(requestAmount)
+                .transactionType(transactionType)
+                .timestamp(LocalDateTime.now())
                 .build();
+    }
 
-        // Handle race condition :
-        // (PB: Two identical requests arrive at the same time, Both pass the “not found” check, Then both try to insert)
-        // Solution: Catch the DB exception and return the existing transaction...
-        try {
-            transactionRepository.save(txn);
-        } catch (DataIntegrityViolationException ex) {
-            // returning the existing transaction, we can map it to transferResponse afterwards...
-            return transactionRepository
-                    .findByClientTransactionId(clientTxnId)
-                    .orElseThrow(() -> ex);
+    private void handleFraud(FraudEvaluationResult result, Account sourceAccount)
+            throws JsonProcessingException {
+        switch (result.getDecision()) {
+            case BLOCK:
+                throw new FraudDetectedException(result.getReason());
+
+            case FREEZE_ACCOUNT:
+                Account freshAcc = findAccountForRead(sourceAccount.getAccountNumber());
+                if (freshAcc.getAccountStatus() != AccountStatus.FROZEN) {
+                    accountService.freezeTheAccountByAccountNumber(
+                            freshAcc.getUser().getEmail(),
+                            freshAcc.getAccountNumber()
+                    );
+                }
+                throw new FraudDetectedException(result.getReason());
+
+            case SUSPICIOUS:
+                log.warn("Suspicious txn detected: {}", result.getReason());
+                break;
+
+            case SAFE:
+                break;
         }
-
-        return txn;
     }
 
+    public TransactionResponse withdrawMoneyFromTheAccount(WithdrawRequest request)
+            throws AccessDeniedException, JsonProcessingException {
 
-    private void saveOutboxEvent(Object event)
-            throws JsonProcessingException {
-
-        String payload = objectMapper.writeValueAsString(event);
-
-        OutboxEvent outboxEvent = OutboxEvent.builder()
-                .eventType(OutboxEventType.TRANSACTION_COMPLETED)
-                .payload(payload)
-                .status(OutboxStatus.PENDING)
-                .retryCount(0)
-                .build();
-
-        outboxEventRepository.save(outboxEvent);
-    }
-
-    private void saveTransferEvents(Transaction txn)
-            throws JsonProcessingException {
-
-        TransactionCompletedEvent senderEvent = buildSenderEvent(txn);
-        TransactionCompletedEvent receiverEvent = buildReceiverEvent(txn);
-
-        saveOutboxEvent(senderEvent);
-        saveOutboxEvent(receiverEvent);
-    }
-
-    private void validateLimits(TransactionType type, BigDecimal amount, String accountNo) {
-        // Throw exception if given 'amount' <= zero or exceeding the maximum deposit limit...
-        transactionLimitService.validatePerTransactionLimit(type, amount);
-        // Checking the daily limit of deposit...
-        transactionLimitService.validateDailyTransactionLimit(
-                type,
-                amount,
-                accountNo
-        );
-    }
-
-    private String resolveRemark(String remark, String defaultText) {
-        return (remark != null && !remark.isEmpty()) ? remark : defaultText;
-    }
-
-    private void saveTransactionEvent(Transaction txn, String email)
-            throws JsonProcessingException {
-
-        TransactionCompletedEvent event = buildEvent(txn, email);
-        saveOutboxEvent(event);
-    }
-
-    @Transactional
-    public TransactionResponse transferMoneyBetweenAccounts(TransferRequest request) throws AccessDeniedException, JsonProcessingException {
-
+        // validate client txn id...
         validateClientTransactionId(request.getClientTransactionId());
 
         // Check Idempotency...
         TransactionResponse existing = checkIdempotency(request.getClientTransactionId());
         if (existing != null) return existing;
 
-        // Finding the active accounts via their account number...
-        Account from = findActiveAccountAndValidate(request.getFromAccountNumber()); // We also checks if the 'from' account belongs to loggedIn user or not...
+        // Step-1 fetching the account for read only (NO LOCK)...
+        Account account = findAndValidateAccountForRead(request.getAccountNo()); // We also checks if the 'from' account belongs to loggedIn user or not...
 
-        // verifying the kyc status of a user...
-        kycCheck(from.getUser().getKycStatus());
+        // KYC check...
+        kycCheck(account.getUser().getKycStatus(), KYC_REQ);
 
-        Account to = findTheActiveAccount(request.getToAccountNumber()); // Verifying if the 'to' account exists or not...
-
-        // It will apply all the necessary validations to request...
-        validateTransferRequest(request, from);
-
-        // resolving remark...
-        String remark = resolveRemark(request.getRemark(), "Transferred money");
-
-        // Creating the transaction...
-        Transaction txn = createTransaction(request.getAmount(), request.getClientTransactionId(), from, to, TransactionType.TRANSFER, remark);
-
-        // Ledger entries
-        ledgerService.recordTransfer(
-                from,
-                to,
+        // STEP 2: FRAUD CHECK:--
+        TransactionContext context = createTransactionContext(
+                account.getUser(),
+                account,
                 request.getAmount(),
-                txn.getTransactionReference(),
-                remark
+                TransactionType.WITHDRAW
         );
+        FraudEvaluationResult result = fraudDetectionService.evaluate(context);
+        // Handle fraud before transaction...
+        handleFraud(result, account);
 
-        saveTransferEvents(txn);
+        // Business validations:-
+        validateLimits(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo()); // Validate withdraw limits
+        validateBalance(account.getAccountNumber(), request.getAmount()); // Balance check
 
-        return mapToTransactionResponse(txn);
+        // Call transactional method...
+        return transactionExecutionService.executeWithdraw(request, account);
     }
 
-    @Transactional
-    public TransactionResponse depositMoneyToTheAccount(DepositRequest request) throws AccessDeniedException, JsonProcessingException {
+    public TransactionResponse depositMoneyToTheAccount(DepositRequest request)
+            throws AccessDeniedException, JsonProcessingException {
 
+        // validate client txn id...
         validateClientTransactionId(request.getClientTransactionId());
 
         // Check Idempotency...
         TransactionResponse existing = checkIdempotency(request.getClientTransactionId());
         if (existing != null) return existing;
 
-        // We check if the 'to' account exists or not...
-        Account account = findTheActiveAccount(request.getAccountNo());
+        // Step-1 fetching the account for read only (NO LOCK)
+        Account toAcc = findAccountForRead(request.getAccountNo()); // We also checks if the 'from' account belongs to loggedIn user or not...
 
-        // verifying the kyc status of a user...
-        kycCheck(account.getUser().getKycStatus());
+        // verifying the kyc status of account holder...
+        kycCheck(toAcc.getUser().getKycStatus(), KYC_REQ);
+
+        // STEP 2: fraud check:--
+        TransactionContext transactionContext =
+                createTransactionContext(toAcc.getUser(), toAcc, request.getAmount(), TransactionType.DEPOSIT);
+        // fraud detection.
+        FraudEvaluationResult result = fraudDetectionService.evaluate(transactionContext);
+        // Handle fraud before transaction...
+        handleFraud(result, toAcc);
 
         // Validate the deposit limits...
         validateLimits(TransactionType.DEPOSIT, request.getAmount(), request.getAccountNo());
 
-        // Resolving the remark...
-        String remark = resolveRemark(request.getRemark(), "Deposited money");
-
-        // Creating new transaction object to save the record in the table...
-        Transaction txn = createTransaction(
-                request.getAmount(),
-                request.getClientTransactionId(),
-                null,
-                account,
-                TransactionType.DEPOSIT,
-                remark
-        );
-
-        // Saving Ledger entry...
-        ledgerService.recordDeposit(
-                account,
-                request.getAmount(),
-                txn.getTransactionReference(),
-                txn.getRemark()
-        );
-
-        // Preparing and saving the withdrawal outbox event...
-        saveTransactionEvent(txn, account.getUser().getEmail());
-
-        return mapToTransactionResponse(txn);
+        // STEP 3: Call transactional method...
+        return transactionExecutionService.executeDeposit(request, toAcc);
     }
 
-    @Transactional
-    public TransactionResponse withdrawMoneyFromTheAccount(WithdrawRequest request) throws AccessDeniedException, JsonProcessingException {
+    public TransactionResponse transferMoneyBetweenAccounts(TransferRequest request)
+            throws AccessDeniedException, JsonProcessingException {
 
         validateClientTransactionId(request.getClientTransactionId());
 
-        // Check Idempotency...
+        // Idempotency check...
         TransactionResponse existing = checkIdempotency(request.getClientTransactionId());
         if (existing != null) return existing;
 
-        // Finding the active account via account number...
-        Account account = findActiveAccountAndValidate(request.getAccountNo()); // We also checks if the 'from' account belongs to loggedIn user or not...
+        // Step-1 fetching accounts to read only (NO LOCK)...
+        Account fromAcc = findAndValidateAccountForRead(request.getFromAccountNumber());
+        Account toAcc = findAccountForRead(request.getToAccountNumber());
 
         // verifying the kyc status of a user...
-        kycCheck(account.getUser().getKycStatus());
+        kycCheck(fromAcc.getUser().getKycStatus(), KYC_REQ);
+        kycCheck(toAcc.getUser().getKycStatus(), "Receiver KYC incomplete");
 
-        // Validate withdraw limits...
-        validateLimits(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo());
-
-        // Validating balance...
-        validateBalance(account.getAccountNumber(), request.getAmount());
-
-        // Resolving the remark...
-        String remark = resolveRemark(request.getRemark(), "ATM Withdrawal");
-
-        // Creating new transaction object to save the record in the table...
-        Transaction txn = createTransaction(
-                request.getAmount(),
-                request.getClientTransactionId(),
-                account,
-                null,
-                TransactionType.WITHDRAW,
-                remark
+        // STEP 2: FRAUD CHECK:--
+        TransactionContext transactionContext = createTransactionContext(
+                fromAcc.getUser(),
+                fromAcc, request.getAmount(),
+                TransactionType.TRANSFER
         );
+        // fraud detection...
+        FraudEvaluationResult result = fraudDetectionService.evaluate(transactionContext);
+        handleFraud(result, fromAcc); // Handle fraud before txn...
 
-        // Ledger entries
-        ledgerService.recordWithdrawal(
-                account,
-                request.getAmount(),
-                txn.getTransactionReference(),
-                txn.getRemark()
-        );
+        // Business validations:-
+        // It will apply all the necessary validations to request...
+        validateTransferRequest(request, fromAcc);
 
-        // Preparing and saving the withdrawal outbox event...
-        saveTransactionEvent(txn, account.getUser().getEmail());
-
-        return mapToTransactionResponse(txn);
+        // Step 3 call transactional method...
+        return transactionExecutionService.executeTransfer(request, fromAcc, toAcc);
     }
 
     @Transactional(readOnly = true)
@@ -517,7 +354,7 @@ public class TransactionService {
             LocalDate to
     ) {
         // Validate account ownership (API use case)...
-        Account account = findAndValidateTheActiveAccountToReadOnly(accountNumber);
+        Account account = findAndValidateAccountForRead(accountNumber);
 
         // Calling the internal implementation of the generating statement...
         return generateStatementInternal(account, accountNumber, from, to);
@@ -536,5 +373,4 @@ public class TransactionService {
         // Calling the internal implementation of the generating statement...
         return generateStatementInternal(account, accountNumber, from, to);
     }
-
 }

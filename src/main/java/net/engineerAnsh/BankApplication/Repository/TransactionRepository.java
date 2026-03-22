@@ -29,7 +29,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                                                                @Param("beforeDate") LocalDateTime beforeDate
     );
 
-
     // What this query means :->
     // “Give me all successful transactions
     // involving this account
@@ -56,8 +55,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     // It returns 0 if no transactions exist...
     // SUM(t.amount) → adds all amounts that match the conditions, Sometimes SUM returns null if no rows matched (Eg: No transactions today)...
     // Direction Filter: We are using one query to support both debit and credit totals.
-        // If direction = "DEBIT", Then we Count outgoing transactions from that account (e.g: WITHDRAWAL (money going out) AND TRANSFER (money going out))...
-        // If direction = "CREDIT", Then we Count incoming transactions into that account:t (e.g: DEPOSIT (money in) AND TRANSFER received (money in)))...
+    // If direction = "DEBIT", Then we Count outgoing transactions from that account (e.g: WITHDRAWAL (money going out) AND TRANSFER (money going out))...
+    // If direction = "CREDIT", Then we Count incoming transactions into that account:t (e.g: DEPOSIT (money in) AND TRANSFER received (money in)))...
     // Date Range filter is how we filter to a single day...
     @Query("""
                 SELECT COALESCE(SUM(t.amount), 0)
@@ -79,10 +78,25 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("end") LocalDateTime end
     );
 
-
     Optional<Transaction> findByClientTransactionId(String clientTransactionId);
 
-
+    // This query used to count transactions for an account after a specific time...
+    @Query("""
+               SELECT COUNT(t)
+               FROM Transaction t
+               WHERE(
+                       (:type = 'DEPOSIT' AND t.toAccount.accountNumber = :accountNumber)
+                       OR
+                       (:type != 'DEPOSIT' AND t.fromAccount.accountNumber = :accountNumber)
+                   )
+               AND t.type = :type
+               AND t.createdAt >= :since
+            """)
+    int countTransactionsSince(
+            String accountNumber,
+            TransactionType type,
+            LocalDateTime since
+    );
 }
 
 

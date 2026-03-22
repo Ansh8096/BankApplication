@@ -20,6 +20,7 @@ import org.apache.coyote.BadRequestException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
 import java.math.BigDecimal;
@@ -161,7 +162,7 @@ public class AccountService {
         return savedAccount.getId();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW) // " 'Propagation.REQUIRES_NEW' means Pause the current transaction, start a NEW independent transaction for this method"
     public void freezeTheAccountByAccountNumber(String email, String accountNumber) throws AccessDeniedException, JsonProcessingException {
         Account savedAccount = findNotClosedAccountAndValidate(email, accountNumber);
 
@@ -170,11 +171,11 @@ public class AccountService {
         }
 
         if (savedAccount.getAccountStatus() == AccountStatus.FROZEN) {
-            throw new IllegalStateException("Account is already frozen...");
+            log.info("Account is already frozen...");
+            return;
         }
 
         savedAccount.setAccountStatus(AccountStatus.FROZEN);
-        accountRepository.save(savedAccount);
 
         publishAccountNotificationEvent(savedAccount, AccountEventType.ACCOUNT_FROZEN);
     }

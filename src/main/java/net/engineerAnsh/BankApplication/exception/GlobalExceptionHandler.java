@@ -8,7 +8,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.access.AccessDeniedException;
-
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -118,6 +117,14 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
     public ResponseEntity<?> handleKycException(KycNotVerifiedException ex) {
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(FraudDetectedException.class)
+    public ResponseEntity<?> handleFraudException(FraudDetectedException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
                 .body(Map.of("error", ex.getMessage()));
     }
 

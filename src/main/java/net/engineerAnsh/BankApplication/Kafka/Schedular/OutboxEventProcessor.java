@@ -82,7 +82,7 @@ public class OutboxEventProcessor {
         }
     }
 
-    @Scheduled(fixedDelayString = "${outbox.poll.interval}")
+//    @Scheduled(fixedDelayString = "${outbox.poll.interval}")
     @Transactional
     public void processOutboxEvents() {
 

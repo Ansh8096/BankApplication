@@ -29,7 +29,7 @@ public class TransactionLimitService {
         };
 
         if(amount.compareTo(limit) > 0){
-            throw new RuntimeException(type + " per transaction limit exceeded. Max allowed: ₹" + limit);
+            throw new RuntimeException(type + " per transaction limit exceeded. Max allowed: ₹" + limit); // create custom exception: TransactionLimitExceededException...
         }
     }
 
@@ -48,7 +48,7 @@ public class TransactionLimitService {
         // Setting direction according to the transaction type...
         String direction = switch (type) {
             case DEPOSIT -> "CREDIT"; // deposit affects toAccount
-            case TRANSFER, WITHDRAW -> "DEBIT"; // withdrawls/transfers affect fromAccount
+            case TRANSFER, WITHDRAW -> "DEBIT"; // withdrawals or transfers affect fromAccount
         };
 
         // It will give me the total sum of all the 'debit' or 'credit' transactions of a given accountNumber...

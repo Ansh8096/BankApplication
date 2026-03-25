@@ -1,7 +1,6 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,16 +12,15 @@ import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
 import net.engineerAnsh.BankApplication.Enum.*;
+import net.engineerAnsh.BankApplication.Kafka.Builder.TransactionEventBuilder;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
-import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Service
 @Slf4j
@@ -33,8 +31,8 @@ public class TransactionExecutionService {
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
     private final LedgerService ledgerService;
-    private final ObjectMapper objectMapper;
-    private final OutboxEventRepository outboxEventRepository;
+    private final TransactionEventBuilder transactionEventBuilder;
+    private final OutboxEventService outboxEventService;
 
     private Account findAccountWithLock(String accountNumber) {
         return accountRepository.findAccountForUpdate(accountNumber, AccountStatus.ACTIVE)
@@ -58,62 +56,6 @@ public class TransactionExecutionService {
                 txn.getStatus(),
                 txn.getRemark(),
                 txn.getCreatedAt()
-        );
-    }
-
-    private TransactionCompletedEvent buildEvent(Transaction txn, String userEmail) {
-        log.info("Building transaction event: type={}, ref={}", txn.getType(), txn.getTransactionReference());
-        return new TransactionCompletedEvent(
-                UUID.randomUUID().toString(),
-                txn.getTransactionReference(),
-                txn.getType().name(),
-                txn.getStatus().name(),
-                txn.getAmount(),
-                txn.getFromAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
-                        : null,
-                txn.getToAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
-                        : null,
-                txn.getCreatedAt(),
-                userEmail,
-                txn.getRemark()
-        );
-    }
-
-    private TransactionCompletedEvent buildSenderEvent(Transaction txn) {
-        log.info("Building sender event (transfer transaction): ref={}", txn.getTransactionReference());
-        return new TransactionCompletedEvent(
-                UUID.randomUUID().toString(),
-                txn.getTransactionReference(),
-                "TRANSFER_SENT",
-                txn.getStatus().name(),
-                txn.getAmount(),
-                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
-                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
-                txn.getCreatedAt(),
-                txn.getFromAccount().getUser().getEmail(),
-                (txn.getRemark() != null && !txn.getRemark().isEmpty())
-                        ? txn.getRemark()
-                        : txn.getAmount() + " Sent to A/C " + AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
-        );
-    }
-
-    private TransactionCompletedEvent buildReceiverEvent(Transaction txn) {
-        log.info("Building receiver event (transfer transaction):  ref={}", txn.getTransactionReference());
-        return new TransactionCompletedEvent(
-                UUID.randomUUID().toString(),
-                txn.getTransactionReference(),
-                "TRANSFER_RECEIVED",
-                txn.getStatus().name(),
-                txn.getAmount(),
-                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
-                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
-                txn.getCreatedAt(),
-                txn.getToAccount().getUser().getEmail(),
-                (txn.getRemark() != null && !txn.getRemark().isEmpty())
-                        ? txn.getRemark()
-                        : txn.getAmount() + " Received from A/C " + AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
         );
     }
 
@@ -143,7 +85,7 @@ public class TransactionExecutionService {
         try {
             transactionRepository.save(txn);
         } catch (DataIntegrityViolationException ex) {
-            // returning the existing transaction, we can map it to transferResponse afterwards...
+            // returning the existing transaction, we can map it to transferResponse afterward...
             return transactionRepository
                     .findByClientTransactionId(clientTxnId)
                     .orElseThrow(() -> ex);
@@ -152,31 +94,19 @@ public class TransactionExecutionService {
         return txn;
     }
 
-    private void saveOutboxEvent(Object event)
-            throws JsonProcessingException {
-
-        String payload = objectMapper.writeValueAsString(event);
-
-        OutboxEvent outboxEvent = OutboxEvent.builder()
-                .eventType(OutboxEventType.TRANSACTION_COMPLETED)
-                .payload(payload)
-                .status(OutboxStatus.PENDING)
-                .retryCount(0)
-                .build();
-
-        outboxEventRepository.save(outboxEvent);
-    }
 
     private void saveTransferEvents(Transaction txn)
             throws JsonProcessingException {
 
-        TransactionCompletedEvent senderEvent = buildSenderEvent(txn);
-        TransactionCompletedEvent receiverEvent = buildReceiverEvent(txn);
+        TransactionCompletedEvent senderEvent = transactionEventBuilder.buildSenderTxnEvent(txn);
+        TransactionCompletedEvent receiverEvent = transactionEventBuilder.buildReceiverTxnEvent(txn);
 
-        saveOutboxEvent(senderEvent);
-        saveOutboxEvent(receiverEvent);
+        OutboxEvent outboxSenderEvent = outboxEventService.buildOutboxEvent(senderEvent, OutboxEventType.TRANSACTION_COMPLETED);
+        OutboxEvent outboxReceiverEvent = outboxEventService.buildOutboxEvent(receiverEvent, OutboxEventType.TRANSACTION_COMPLETED);
+
+        outboxEventService.publishOutBoxEvent(outboxSenderEvent);
+        outboxEventService.publishOutBoxEvent(outboxReceiverEvent);
     }
-
 
     private String resolveRemark(String remark, String defaultText) {
         return (remark != null && !remark.isEmpty()) ? remark : defaultText;
@@ -185,8 +115,9 @@ public class TransactionExecutionService {
     private void saveTransactionEvent(Transaction txn, String email)
             throws JsonProcessingException {
 
-        TransactionCompletedEvent event = buildEvent(txn, email);
-        saveOutboxEvent(event);
+        TransactionCompletedEvent event = transactionEventBuilder.buildTxnEvent(txn, email);
+        OutboxEvent outboxTxnEvent = outboxEventService.buildOutboxEvent(event, OutboxEventType.TRANSACTION_COMPLETED);
+        outboxEventService.publishOutBoxEvent(outboxTxnEvent);
     }
 
     // creating a custom wrapper...
@@ -237,7 +168,7 @@ public class TransactionExecutionService {
                 txn.getRemark()
         );
 
-        // building and saving the withdrawal Outbox event...
+        // building txn event and publishing outbox event...
         saveTransactionEvent(txn, lockedAccount.getUser().getEmail());
 
         return mapToTransactionResponse(txn);
@@ -271,7 +202,7 @@ public class TransactionExecutionService {
                 txn.getRemark()
         );
 
-        // prepare and saving the outbox event for deposit...
+        // building txn event and publishing outbox event...
         saveTransactionEvent(txn, locked.getUser().getEmail());
 
         return mapToTransactionResponse(txn);
@@ -309,6 +240,7 @@ public class TransactionExecutionService {
                 remark
         );
 
+        // building txn event and publishing outbox event...
         saveTransferEvents(txn);
 
         return mapToTransactionResponse(txn);

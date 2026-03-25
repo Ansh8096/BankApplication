@@ -46,11 +46,12 @@ public class UserService {
     }
 
 
-//    @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
+    @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     public List<User> getAllUsers() {
         return userRepository.findAllActiveUsers();
     }
 
+    @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     @Transactional
     public void softDeleteTheUserByEmail() {
         String email = getUserEmail();

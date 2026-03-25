@@ -1,7 +1,10 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import net.engineerAnsh.BankApplication.Kafka.Event.AccountNotificationEvent;
+import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
+import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.Utils.CurrencyUtil;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -119,4 +122,85 @@ public class EmailTemplateService {
                     event.getTimestamp());
         };
     }
+
+    public String buildFraudDetectedEmailBody(FraudDetectedEvent event) {
+        return switch (event.getDecision()) {
+            case FREEZE_ACCOUNT -> String.format("""
+                            Dear Customer,
+                            
+                            Your account (%s) has been temporarily frozen due to suspicious activity.
+                            
+                            Reason: %s
+                            
+                            Please contact support immediately to restore access.
+                            
+                            - Bank of Ansh
+                            """,
+                    AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()),
+                    event.getReason()
+            );
+
+            case BLOCK -> String.format("""
+                            Dear Customer,
+                            
+                            A transaction of %s was blocked for your account (%s).
+                            
+                            Reason: %s
+                            
+                            If this wasn't you, please contact support.
+                            
+                            - Bank of Ansh
+                            """,
+                    CurrencyUtil.format(event.getAmount()),
+                    AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()),
+                    event.getReason()
+            );
+
+            case SUSPICIOUS -> String.format("""
+                            Dear Customer,
+                            
+                            We detected unusual activity on your account (%s).
+                            
+                            Transaction Amount: %s
+                            
+                            If this was not you, please take action immediately.
+                            
+                            - Bank of Ansh
+                            """,
+                    AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()),
+                    CurrencyUtil.format(event.getAmount())
+            );
+
+            default -> "";
+        };
+    }
+
+    public String buildTxnEmailBody(TransactionCompletedEvent event) {
+        return String.format(
+                """
+                        Hello,
+                        
+                        A transaction has been completed on your account.
+                        
+                        Reference: %s
+                        Type: %s
+                        Amount: ₹%s
+                        From: %s
+                        To: %s
+                        Time: %s
+                        Remark: %s
+                        
+                        Thank you,
+                        BANK OF ANSH
+                        """.formatted(
+                        event.getTransactionReference(),
+                        event.getType(),
+                        event.getAmount(),
+                        event.getFromAccountMasked(),
+                        event.getToAccountMasked(),
+                        event.getCreatedAt(),
+                        event.getRemark() != null ? event.getRemark() : "-"
+                ));
+    }
+
 }

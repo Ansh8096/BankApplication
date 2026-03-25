@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionSuccessProducer;
+import net.engineerAnsh.BankApplication.Services.EmailTemplateService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
@@ -18,6 +19,7 @@ public class TransactionNotificationConsumer {
 
     private final EmailServiceImpl emailService;
     private final TransactionSuccessProducer transactionSuccessProducer;
+    private final EmailTemplateService emailTemplateService;
 
     @RetryableTopic(
             attempts = "3", // total attempts
@@ -31,35 +33,10 @@ public class TransactionNotificationConsumer {
     )
     public void consume(TransactionCompletedEvent event) {
         log.info("Received transaction event: {}", event.getTransactionReference());
-
         try {
-
             String subject = "Transaction Alert - " + event.getType();
 
-            String body = """
-                    Hello,
-                    
-                    A transaction has been completed on your account.
-                    
-                    Reference: %s
-                    Type: %s
-                    Amount: ₹%s
-                    From: %s
-                    To: %s
-                    Time: %s
-                    Remark: %s
-                    
-                    Thank you,
-                    BANK OF ANSH
-                    """.formatted(
-                    event.getTransactionReference(),
-                    event.getType(),
-                    event.getAmount(),
-                    event.getFromAccountMasked(),
-                    event.getToAccountMasked(),
-                    event.getCreatedAt(),
-                    event.getRemark() != null ? event.getRemark() : "-"
-            );
+            String body = emailTemplateService.buildTxnEmailBody(event);
 
             // sending the email...
             emailService.sendSimpleEmail(event.getUserEmail(), subject, body);
@@ -70,7 +47,7 @@ public class TransactionNotificationConsumer {
         } catch (Exception e) {
             log.error("Failed to process transaction event {}",
                     event.getTransactionReference(), e);
-            throw e;  // IMPORTANT: rethrow to trigger retry ...
+            throw e;  // IMPORTANT: throw error to trigger retry ...
         }
     }
 }

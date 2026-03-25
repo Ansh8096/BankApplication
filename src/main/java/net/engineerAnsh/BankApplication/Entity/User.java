@@ -35,7 +35,7 @@ public class User {
     @Column(name = "age", nullable = false)
     private Integer age; // age eligibility for loan.
 
-    @Column(name = "phone_number", unique = true, nullable = false, length = 15)
+    @Column(name = "phone_number", unique = true, nullable = false, length = 13)
     private String phoneNumber;
 
     @Column(name = "password_hash", nullable = false)

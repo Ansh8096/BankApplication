@@ -4,5 +4,5 @@ package net.engineerAnsh.BankApplication.Enum;
 public enum TransactionStatus {
     SUCCESS,
     FAILED,
-    PENDING
+    BLOCKED
 }

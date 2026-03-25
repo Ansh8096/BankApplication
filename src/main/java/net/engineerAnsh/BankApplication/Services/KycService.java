@@ -1,7 +1,6 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -13,11 +12,10 @@ import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.KycStatus;
 import net.engineerAnsh.BankApplication.Enum.OutboxEventType;
-import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
 import net.engineerAnsh.BankApplication.Kafka.Enums.KycEventType;
+import net.engineerAnsh.BankApplication.Kafka.Builder.KycEventBuilder;
 import net.engineerAnsh.BankApplication.Kafka.Event.KycEvent;
 import net.engineerAnsh.BankApplication.Repository.KycVerificationRepository;
-import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -33,19 +31,12 @@ public class KycService {
 
     private final KycVerificationRepository kycRepository;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
-    private final OutboxEventRepository outboxRepository;
-
+    private final OutboxEventService outboxEventService;
+    private final KycEventBuilder kycEventBuilder;
 
     private void buildAndSaveOutboxEvent(KycEvent event) throws JsonProcessingException {
-        String payload = objectMapper.writeValueAsString(event);
-
-        OutboxEvent outboxEvent = OutboxEvent.builder()
-                .eventType(OutboxEventType.KYC_EVENT)
-                .payload(payload)
-                .status(OutboxStatus.PENDING)
-                .build();
-        outboxRepository.save(outboxEvent);
+        OutboxEvent outboxKycEvent = outboxEventService.buildOutboxEvent(event, OutboxEventType.KYC_EVENT);
+        outboxEventService.publishOutBoxEvent(outboxKycEvent);
     }
 
     private void setKycRecord(KycVerification kyc, KycSubmissionRequest request){
@@ -86,13 +77,8 @@ public class KycService {
         // Sets details of kyc record
         setKycRecord(kyc, request);
 
-        KycEvent kycSubmitEvent = new KycEvent(
-                user.getUserId(),
-                user.getEmail(),
-                KycEventType.SUBMITTED,
-                request.getDocumentType().name(),
-                null
-        );
+        KycEvent kycSubmitEvent = kycEventBuilder
+                .buildKycEvent(user, KycEventType.SUBMITTED, null, request.getDocumentType().name());
 
         user.setKycStatus(KycStatus.UNDER_REVIEW);
         userRepository.save(user);
@@ -134,13 +120,8 @@ public class KycService {
             kyc.setRejectionReason(request.getRejectionReason());
             user.setKycStatus(KycStatus.REJECTED);
 
-            KycEvent kycRejectedEvent = new KycEvent(
-                    user.getUserId(),
-                    user.getEmail(),
-                    KycEventType.REJECTED,
-                    null,
-                    request.getRejectionReason()
-            );
+            KycEvent kycRejectedEvent = kycEventBuilder.buildKycEvent(
+                    user, KycEventType.REJECTED, request.getRejectionReason(), null);
 
             buildAndSaveOutboxEvent(kycRejectedEvent);
 
@@ -149,16 +130,10 @@ public class KycService {
             kyc.setStatus(KycStatus.APPROVED);
             user.setKycStatus(KycStatus.APPROVED);
 
-            KycEvent kycApprovedEvent = new KycEvent(
-                    user.getUserId(),
-                    user.getEmail(),
-                    KycEventType.APPROVED,
-                    null,
-                    null
-            );
+            KycEvent kycApprovedEvent = kycEventBuilder
+                    .buildKycEvent(user, KycEventType.APPROVED, null, null);
 
             buildAndSaveOutboxEvent(kycApprovedEvent);
-
         }
 
         kyc.setReviewedAt(LocalDateTime.now());

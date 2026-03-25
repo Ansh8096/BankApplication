@@ -28,6 +28,7 @@ public class OutboxEventProcessor {
     private final TransactionEventProducer transactionEventProducer;
     private final KycEventProducer kycEventProducer;
     private final AccountEventProducer accountEventProducer;
+    private final FraudEventProducer fraudEventProducer;
     private static final int MAX_RETRIES = 5;
 
     private void publishEvent(OutboxEvent event) throws JsonProcessingException {
@@ -77,12 +78,20 @@ public class OutboxEventProcessor {
                 accountEventProducer.accountEventPublish(accountEvent);
                 break;
 
+            case FRAUD_DETECTED:
+                FraudDetectedEvent fraudDetectedEvent =
+                        objectMapper.readValue(event.getPayload(),
+                                FraudDetectedEvent.class
+                        );
+                fraudEventProducer.publishFraudEvent(fraudDetectedEvent);
+                break;
+
             default:
                 throw new IllegalArgumentException("Unknown event type: " + event.getEventType());
         }
     }
 
-//    @Scheduled(fixedDelayString = "${outbox.poll.interval}")
+    @Scheduled(fixedDelayString = "${outbox.poll.interval}")
     @Transactional
     public void processOutboxEvents() {
 
@@ -126,7 +135,6 @@ public class OutboxEventProcessor {
                     event.setStatus(OutboxStatus.PENDING);
                 }
             }
-
             outboxEventRepository.save(event);
         }
     }

@@ -11,17 +11,22 @@ import net.engineerAnsh.BankApplication.Dto.transaction.TransactionResponse;
 import net.engineerAnsh.BankApplication.Dto.transaction.TransferRequest;
 import net.engineerAnsh.BankApplication.Dto.transaction.WithdrawRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
+import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.*;
+import net.engineerAnsh.BankApplication.Kafka.Builder.FraudEventBuilder;
+import net.engineerAnsh.BankApplication.Fraud.FraudDecision;
 import net.engineerAnsh.BankApplication.Fraud.FraudDetectionService;
 import net.engineerAnsh.BankApplication.Fraud.FraudEvaluationResult;
 import net.engineerAnsh.BankApplication.Fraud.TransactionContext;
+import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
 import net.engineerAnsh.BankApplication.exception.FraudDetectedException;
 import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +49,10 @@ public class TransactionService {
     private final TransactionExecutionService transactionExecutionService;
     private final TransactionLimitService transactionLimitService;
     private final LedgerService ledgerService;
+    private final FraudEventBuilder fraudEventBuilder;
+    private final OutboxEventService outboxEventService;
     private static final String KYC_REQ = "KYC verification required";
+    private static final String NOT_OWNER_MSG = "The account doesn't belong to the logged-in user";
 
     public void validateBalance(String accountNo, BigDecimal amount) {
 
@@ -101,8 +109,8 @@ public class TransactionService {
 
         // Validate ownership...
         if (!account.getUser().getEmail().equals(email)) {
-            log.error(AccountService.getNot_owner_msg());
-            throw new AccessDeniedException(AccountService.getNot_owner_msg());
+            log.error(NOT_OWNER_MSG);
+            throw new AccessDeniedException(NOT_OWNER_MSG);
         }
         return account;
     }
@@ -214,6 +222,7 @@ public class TransactionService {
     private TransactionContext createTransactionContext(User user, Account sourceAccount, BigDecimal requestAmount, TransactionType transactionType) {
         return TransactionContext.builder()
                 .userId(user.getUserId())
+                .email(user.getEmail())
                 .accountNumber(sourceAccount.getAccountNumber())
                 .amount(requestAmount)
                 .transactionType(transactionType)
@@ -221,25 +230,69 @@ public class TransactionService {
                 .build();
     }
 
-    private void handleFraud(FraudEvaluationResult result, Account sourceAccount)
-            throws JsonProcessingException {
-        switch (result.getDecision()) {
-            case BLOCK:
-                throw new FraudDetectedException(result.getReason());
+    private Transaction createBlockTxn(
+            Account fromAccount,
+            Account toAccount,
+            TransactionContext context,
+            String clientTxnId,
+            String reason
+    ) {
+        Transaction txn = Transaction.builder()
+                .amount(context.getAmount())
+                .remark("Blocked: " + reason)
+                .fromAccount(fromAccount)
+                .toAccount(toAccount)
+                .type(context.getTransactionType())
+                .status(TransactionStatus.BLOCKED)
+                .clientTransactionId(clientTxnId)
+                .build();
 
+        // Handle race condition :
+        // (PB: Two identical requests arrive at the same time, Both pass the “not found” check, Then both try to insert)
+        // Solution: Catch the DB exception and return the existing transaction...
+        try {
+            return transactionRepository.save(txn);
+        } catch (DataIntegrityViolationException ex) {
+            // returning the existing transaction, we can map it to transferResponse afterward...
+            return transactionRepository
+                    .findByClientTransactionId(clientTxnId)
+                    .orElseThrow(() -> ex);
+        }
+    }
+
+    private void handleFraud(
+            Account sourceAccount,
+            Account toAccount,
+            FraudEvaluationResult result,
+            TransactionContext context,
+            String clientTxnId
+    ) throws JsonProcessingException {
+
+        if (result.getDecision() != FraudDecision.SAFE) {
+            FraudDetectedEvent fraudEvent = fraudEventBuilder.buildFraudEvent(context, result); // build fraud event...
+            // Build and Save outBox event...
+            OutboxEvent outboxFraudEvent = outboxEventService.buildOutboxEvent(fraudEvent, OutboxEventType.FRAUD_DETECTED);
+            outboxEventService.publishOutBoxEvent(outboxFraudEvent);
+        }
+
+        switch (result.getDecision()) {
             case FREEZE_ACCOUNT:
-                Account freshAcc = findAccountForRead(sourceAccount.getAccountNumber());
-                if (freshAcc.getAccountStatus() != AccountStatus.FROZEN) {
-                    accountService.freezeTheAccountByAccountNumber(
-                            freshAcc.getUser().getEmail(),
-                            freshAcc.getAccountNumber()
-                    );
-                }
                 throw new FraudDetectedException(result.getReason());
 
             case SUSPICIOUS:
-                log.warn("Suspicious txn detected: {}", result.getReason());
+                log.warn("⚠️ Suspicious txn: {}", result.getReason());
                 break;
+
+            case BLOCK:
+                createBlockTxn(
+                        sourceAccount,
+                        toAccount,
+                        context,
+                        clientTxnId,
+                        result.getReason()
+                );
+                log.error("🚫 BLOCKED FRAUD: {}", result.getReason());
+                throw new FraudDetectedException(result.getReason());
 
             case SAFE:
                 break;
@@ -262,6 +315,10 @@ public class TransactionService {
         // KYC check...
         kycCheck(account.getUser().getKycStatus(), KYC_REQ);
 
+        // Business validations:-
+        validateLimits(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo()); // Validate withdraw limits
+        validateBalance(account.getAccountNumber(), request.getAmount()); // Balance check
+
         // STEP 2: FRAUD CHECK:--
         TransactionContext context = createTransactionContext(
                 account.getUser(),
@@ -270,12 +327,9 @@ public class TransactionService {
                 TransactionType.WITHDRAW
         );
         FraudEvaluationResult result = fraudDetectionService.evaluate(context);
-        // Handle fraud before transaction...
-        handleFraud(result, account);
 
-        // Business validations:-
-        validateLimits(TransactionType.WITHDRAW, request.getAmount(), request.getAccountNo()); // Validate withdraw limits
-        validateBalance(account.getAccountNumber(), request.getAmount()); // Balance check
+        // Handle fraud before transaction...
+        handleFraud(account, null, result, context, request.getClientTransactionId());
 
         // Call transactional method...
         return transactionExecutionService.executeWithdraw(request, account);
@@ -291,6 +345,9 @@ public class TransactionService {
         TransactionResponse existing = checkIdempotency(request.getClientTransactionId());
         if (existing != null) return existing;
 
+        // Validate the deposit limits...
+        validateLimits(TransactionType.DEPOSIT, request.getAmount(), request.getAccountNo());
+
         // Step-1 fetching the account for read only (NO LOCK)
         Account toAcc = findAccountForRead(request.getAccountNo()); // We also checks if the 'from' account belongs to loggedIn user or not...
 
@@ -300,13 +357,8 @@ public class TransactionService {
         // STEP 2: fraud check:--
         TransactionContext transactionContext =
                 createTransactionContext(toAcc.getUser(), toAcc, request.getAmount(), TransactionType.DEPOSIT);
-        // fraud detection.
-        FraudEvaluationResult result = fraudDetectionService.evaluate(transactionContext);
-        // Handle fraud before transaction...
-        handleFraud(result, toAcc);
-
-        // Validate the deposit limits...
-        validateLimits(TransactionType.DEPOSIT, request.getAmount(), request.getAccountNo());
+        FraudEvaluationResult result = fraudDetectionService.evaluate(transactionContext); // fraud detection.
+        handleFraud(null, toAcc, result, transactionContext, request.getClientTransactionId()); // Handle fraud before transaction...
 
         // STEP 3: Call transactional method...
         return transactionExecutionService.executeDeposit(request, toAcc);
@@ -329,19 +381,18 @@ public class TransactionService {
         kycCheck(fromAcc.getUser().getKycStatus(), KYC_REQ);
         kycCheck(toAcc.getUser().getKycStatus(), "Receiver KYC incomplete");
 
+        // Business validations:-
+        validateTransferRequest(request, fromAcc); // It will apply all the necessary validations to request...
+
         // STEP 2: FRAUD CHECK:--
         TransactionContext transactionContext = createTransactionContext(
                 fromAcc.getUser(),
-                fromAcc, request.getAmount(),
+                fromAcc,
+                request.getAmount(),
                 TransactionType.TRANSFER
         );
-        // fraud detection...
-        FraudEvaluationResult result = fraudDetectionService.evaluate(transactionContext);
-        handleFraud(result, fromAcc); // Handle fraud before txn...
-
-        // Business validations:-
-        // It will apply all the necessary validations to request...
-        validateTransferRequest(request, fromAcc);
+        FraudEvaluationResult result = fraudDetectionService.evaluate(transactionContext); // fraud detection...
+        handleFraud(fromAcc, toAcc, result, transactionContext, request.getClientTransactionId()); // Handle fraud before txn...
 
         // Step 3 call transactional method...
         return transactionExecutionService.executeTransfer(request, fromAcc, toAcc);

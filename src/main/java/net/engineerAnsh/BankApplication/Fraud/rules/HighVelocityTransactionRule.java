@@ -20,7 +20,6 @@ public class HighVelocityTransactionRule implements FraudRule {
 
     @Override
     public FraudEvaluationResult evaluate(TransactionContext context) {
-
         int maxAllowed =
                 fraudVelocityProperties
                         .getVelocityLimits()

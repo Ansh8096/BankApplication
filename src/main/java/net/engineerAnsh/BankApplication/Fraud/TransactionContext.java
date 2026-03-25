@@ -12,6 +12,8 @@ public class TransactionContext {
 
     private Long userId;
 
+    private String email;
+
     private String accountNumber;
 
     private BigDecimal amount;

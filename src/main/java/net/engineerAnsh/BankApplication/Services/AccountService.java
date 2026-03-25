@@ -1,9 +1,7 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.Account;
@@ -11,8 +9,8 @@ import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.*;
 import net.engineerAnsh.BankApplication.Kafka.Event.AccountNotificationEvent;
+import net.engineerAnsh.BankApplication.Kafka.Builder.AccountEventBuilder;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
-import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountNumberGenerator;
 import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
@@ -25,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -35,11 +32,9 @@ public class AccountService {
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
     private final LedgerService ledgerService;
-    private final ObjectMapper objectMapper;
-    private final OutboxEventRepository outboxRepository;
-
-    @Getter
-    private static final String not_owner_msg = "The account doesn't belong to the logged-in user";
+    private final AccountEventBuilder accountEventBuilder;
+    private final OutboxEventService outboxEventService;
+    private static final String NOT_OWNER_MSG = "The account doesn't belong to the logged-in user";
 
     public String getEmailOfLoggedInUser() {
         return SecurityContextHolder
@@ -57,45 +52,21 @@ public class AccountService {
                 .orElseThrow(() -> new EntityNotFoundException("No active account found..."));
         // If the loginUserEmail is not equal to the userEmail that belongs to account, then throw an exception...
         if (!account.getUser().getEmail().equals(email)) {
-            log.error(not_owner_msg);
-            throw new AccessDeniedException(not_owner_msg);
+            log.error(NOT_OWNER_MSG);
+            throw new AccessDeniedException(NOT_OWNER_MSG);
         }
         return account;
     }
 
-    private Account findAccountForAdmin(String accountNumber) {
+    private Account findAccount(String accountNumber) {
         return accountRepository.findByAccountNumberAndAccountStatusNot(accountNumber, AccountStatus.CLOSED)
                 .orElseThrow(() -> new EntityNotFoundException("No active account found..."));
     }
 
-    private void saveOutboxEvent(Object event)
+    private void buildAndPublishOutboxEvent(Object event)
             throws JsonProcessingException {
-
-        String payload = objectMapper.writeValueAsString(event);
-
-        OutboxEvent outboxEvent = OutboxEvent.builder()
-                .eventType(OutboxEventType.ACCOUNT_NOTIFICATION)
-                .payload(payload)
-                .status(OutboxStatus.PENDING)
-                .retryCount(0)
-                .build();
-
-        outboxRepository.save(outboxEvent);
-    }
-
-    private void publishAccountNotificationEvent(Account account, AccountEventType eventType)
-            throws JsonProcessingException {
-
-        AccountNotificationEvent event = new AccountNotificationEvent(
-                UUID.randomUUID().toString(),
-                account.getAccountNumber(),
-                account.getAccountType(),
-                account.getUser().getEmail(),
-                eventType,
-                LocalDateTime.now()
-        );
-
-        saveOutboxEvent(event);
+        OutboxEvent outboxAccountEvent = outboxEventService.buildOutboxEvent(event, OutboxEventType.ACCOUNT_NOTIFICATION);
+        outboxEventService.publishOutBoxEvent(outboxAccountEvent);
     }
 
     private void validateAccountCreation(User user, AccountType accountType) {
@@ -115,10 +86,20 @@ public class AccountService {
         }
     }
 
-    private void kycCheck(KycStatus status){
-        if(status != KycStatus.APPROVED){
+    private void kycCheck(KycStatus status) {
+        if (status != KycStatus.APPROVED) {
             throw new KycNotVerifiedException("KYC verification required");
         }
+    }
+
+    private void freezeAccountInternally(Account savedAccount) throws AccessDeniedException {
+        if (savedAccount.getAccountStatus().equals(AccountStatus.BLOCKED)) {
+            throw new IllegalStateException("Account: " + savedAccount.getAccountNumber() + " is bLocked by the bank...");
+        }
+        if (savedAccount.getAccountStatus() == AccountStatus.FROZEN) {
+            throw new IllegalStateException("Account:" + savedAccount.getAccountNumber() + "was already frozen...");
+        }
+        savedAccount.setAccountStatus(AccountStatus.FROZEN);
     }
 
     @Transactional
@@ -157,34 +138,33 @@ public class AccountService {
         String newAccountNumber = AccountNumberGenerator.generateAccountNumber(savedAccount);
         savedAccount.setAccountNumber(newAccountNumber);
 
-        publishAccountNotificationEvent(savedAccount, AccountEventType.ACCOUNT_CREATED);
+        AccountNotificationEvent accountEvent = accountEventBuilder.buildAccountEvent(savedAccount, AccountEventType.ACCOUNT_CREATED);
+        buildAndPublishOutboxEvent(accountEvent);
 
         return savedAccount.getId();
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW) // " 'Propagation.REQUIRES_NEW' means Pause the current transaction, start a NEW independent transaction for this method"
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // " 'Propagation.REQUIRES_NEW' means Pause the current transaction, start a NEW independent transaction for this method"
     public void freezeTheAccountByAccountNumber(String email, String accountNumber) throws AccessDeniedException, JsonProcessingException {
         Account savedAccount = findNotClosedAccountAndValidate(email, accountNumber);
+        freezeAccountInternally(savedAccount);
+        AccountNotificationEvent accountEvent = accountEventBuilder.buildAccountEvent(savedAccount, AccountEventType.ACCOUNT_FROZEN);
+        buildAndPublishOutboxEvent(accountEvent);
+    }
 
-        if (savedAccount.getAccountStatus().equals(AccountStatus.BLOCKED)) {
-            throw new IllegalStateException("Account is BLocked, contact the administrator...");
-        }
-
-        if (savedAccount.getAccountStatus() == AccountStatus.FROZEN) {
-            log.info("Account is already frozen...");
-            return;
-        }
-
-        savedAccount.setAccountStatus(AccountStatus.FROZEN);
-
-        publishAccountNotificationEvent(savedAccount, AccountEventType.ACCOUNT_FROZEN);
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // " 'Propagation.REQUIRES_NEW' means Pause the current transaction, start a NEW independent transaction for this method"
+    public void freezeAccountsForFrauds(String accountNumber) throws AccessDeniedException {
+        Account savedAccount = findAccount(accountNumber);
+        freezeAccountInternally(savedAccount);
     }
 
     @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     @Transactional
     public void blockTheAccountByAccountNumber(String accountNumber) throws AccessDeniedException, JsonProcessingException {
 
-        Account savedAccount = findAccountForAdmin(accountNumber);
+        Account savedAccount = findAccount(accountNumber);
 
         if (savedAccount.getAccountStatus() == AccountStatus.BLOCKED) {
             throw new IllegalStateException("Account is already blocked...");
@@ -193,14 +173,15 @@ public class AccountService {
         savedAccount.setAccountStatus(AccountStatus.BLOCKED);
         accountRepository.save(savedAccount);
 
-        publishAccountNotificationEvent(savedAccount, AccountEventType.ACCOUNT_BLOCKED);
+        AccountNotificationEvent accountEvent = accountEventBuilder.buildAccountEvent(savedAccount, AccountEventType.ACCOUNT_BLOCKED);
+        buildAndPublishOutboxEvent(accountEvent);
     }
 
     @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     @Transactional
     public void activateTheAccount(String accountNumber) throws AccessDeniedException, JsonProcessingException {
 
-        Account savedAccount = findAccountForAdmin(accountNumber);
+        Account savedAccount = findAccount(accountNumber);
 
         if (savedAccount.getAccountStatus() == AccountStatus.ACTIVE) {
             throw new IllegalStateException("Account is already active...");
@@ -209,13 +190,14 @@ public class AccountService {
         savedAccount.setAccountStatus(AccountStatus.ACTIVE);
         accountRepository.save(savedAccount);
 
-        publishAccountNotificationEvent(savedAccount, AccountEventType.ACCOUNT_ACTIVATED);
+        AccountNotificationEvent accountEvent = accountEventBuilder.buildAccountEvent(savedAccount, AccountEventType.ACCOUNT_ACTIVATED);
+        buildAndPublishOutboxEvent(accountEvent);
     }
 
     @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     @Transactional
     public void closeTheAccount(String accountNumber) throws AccessDeniedException, JsonProcessingException {
-        Account savedAccount = findAccountForAdmin(accountNumber);
+        Account savedAccount = findAccount(accountNumber);
 
         if (savedAccount.getAccountStatus() == AccountStatus.CLOSED) {
             throw new IllegalStateException("Account is already closed...");
@@ -225,7 +207,8 @@ public class AccountService {
         savedAccount.setAccountClosedAt(LocalDateTime.now());
         accountRepository.save(savedAccount);
 
-        publishAccountNotificationEvent(savedAccount, AccountEventType.ACCOUNT_CLOSED);
+        AccountNotificationEvent accountEvent = accountEventBuilder.buildAccountEvent(savedAccount, AccountEventType.ACCOUNT_CLOSED);
+        buildAndPublishOutboxEvent(accountEvent);
     }
 
     @Transactional

@@ -90,6 +90,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                        (:type != 'DEPOSIT' AND t.fromAccount.accountNumber = :accountNumber)
                    )
                AND t.type = :type
+               AND t.status IN ('SUCCESS', 'BLOCKED')
                AND t.createdAt >= :since
             """)
     int countTransactionsSince(
@@ -97,6 +98,20 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             TransactionType type,
             LocalDateTime since
     );
+
+    @Query("""
+               SELECT COUNT(DISTINCT t.toAccount.accountNumber)
+               FROM Transaction t
+               WHERE t.fromAccount.accountNumber = :accountNumber
+               AND t.type = 'TRANSFER'
+               AND t.status IN ('SUCCESS', 'BLOCKED')
+               AND t.createdAt >= :since
+            """)
+    int countDistinctReceivers(
+            String accountNumber,
+            LocalDateTime since
+    );
+
 }
 
 

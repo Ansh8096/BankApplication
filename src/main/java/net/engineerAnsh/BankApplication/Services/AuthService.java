@@ -1,7 +1,6 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.Auth.LoginRequest;
@@ -12,11 +11,11 @@ import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.KycStatus;
 import net.engineerAnsh.BankApplication.Enum.OutboxEventType;
-import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
+import net.engineerAnsh.BankApplication.Kafka.Builder.UserLoginEventBuilder;
+import net.engineerAnsh.BankApplication.Kafka.Builder.UserRegisteredEventBuilder;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
 import net.engineerAnsh.BankApplication.Repository.EmailVerificationTokenRepository;
-import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import net.engineerAnsh.BankApplication.Security.Jwt.JwtUtils;
 import net.engineerAnsh.BankApplication.exception.InvalidTokenException;
@@ -46,8 +45,9 @@ public class AuthService {
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
-    private final OutboxEventRepository outboxEventRepository;
-    private final ObjectMapper objectMapper;
+    private final UserLoginEventBuilder userLoginEventBuilder;
+    private final UserRegisteredEventBuilder userRegisteredEventBuilder;
+    private final OutboxEventService outboxEventService;
     private static final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Value("${app.verification.cooldown-minutes}")
@@ -64,6 +64,65 @@ public class AuthService {
 
     @Value("${auth.login.max-attempts}")
     private int authLoginMaxAttempts;
+
+    private void buildAndSaveOutboxEvent(Object event, OutboxEventType eventType) throws JsonProcessingException {
+        OutboxEvent outboxKycEvent = outboxEventService.buildOutboxEvent(event, eventType);
+        outboxEventService.publishOutBoxEvent(outboxKycEvent);
+    }
+
+    private void resetFailedAttempts(User user, String ip, String userAgent){
+        user.setFailedAttempts(0);
+        user.setLockTime(null);
+        user.setLastLoginIp(ip);
+        user.setLastLoginDevice(userAgent);
+        user.setLastLoginAt(LocalDateTime.now());
+        user.setLastFailedAttempt(null);
+    }
+
+    private User createNewUser(SignupRequest request){
+
+        // making sure if the role exists in the role table or not...
+        Role userRole = userService.findRoleByName("ROLE_USER"); // this will return Role if present, else Throw an exception...
+
+        User newUser = new User();
+        newUser.setName(request.getFullName());
+        newUser.getRoles().add(userRole); // setting "ROLE_USER"...
+        newUser.setEmail(request.getEmail());
+        newUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        newUser.setAge(request.getAge());
+        newUser.setKycStatus(KycStatus.NOT_SUBMITTED);
+        newUser.setPhoneNumber(request.getPhone());
+        newUser.setEmailVerified(false);
+        newUser.setAccountLocked(false);
+        newUser.setFailedAttempts(0);
+
+        return newUser;
+    }
+
+    private EmailVerificationToken generateToken(User user, String tokenValue){
+        return EmailVerificationToken.builder()
+                .token(tokenValue)
+                .user(user)
+                .expiryDate(LocalDateTime.now().plusMinutes(15))
+                .used(false)
+                .build();
+    }
+
+    private User findUser(String email){
+        // If two resend requests hit at the exact same millisecond, we prevent both from generating tokens by using 'findByEmailForUpdate()' query...
+        return userRepository.findByEmailForUpdate(email)
+                .orElseThrow(() ->
+                        new InvalidTokenException("User not found"));
+    }
+
+    private void validateUser(User user, String email){
+        if (!user.getEmail().equals(email)) {
+            throw new IllegalStateException("Email doesn't belong to the user");
+        }
+        if (user.isEmailVerified()) {
+            throw new IllegalStateException("Email already verified");
+        }
+    }
 
     @Transactional(noRollbackFor = BadCredentialsException.class)
     public String performLogin(LoginRequest request, String ip, String userAgent) throws JsonProcessingException {
@@ -133,12 +192,7 @@ public class AuthService {
         if (user == null) throw new BadCredentialsException("Invalid credentials"); // very rare...
 
         // Reset failed attempts after successful login...
-        user.setFailedAttempts(0);
-        user.setLockTime(null);
-        user.setLastLoginIp(ip);
-        user.setLastLoginDevice(userAgent);
-        user.setLastLoginAt(LocalDateTime.now());
-        user.setLastFailedAttempt(null);
+        resetFailedAttempts(user,ip,userAgent);
 
         // Extract user roles:
         List<String> roles = authenticatedUser.getAuthorities()
@@ -147,29 +201,14 @@ public class AuthService {
                 .toList();
 
         // Creating the login event...
-        UserLoginEvent loginEvent = new UserLoginEvent(
-                request.getEmail(),
-                ip,
-                userAgent,
-                LocalDateTime.now()
-        );
-
-        // Create login Event Payload...
-        String payload = objectMapper.writeValueAsString(loginEvent);
+        UserLoginEvent loginEvent = userLoginEventBuilder.buildLoginEvent(request.getEmail(), ip, userAgent);
 
         // Saving Outbox Event...
-        OutboxEvent outboxEvent = OutboxEvent.builder()
-                .eventType(OutboxEventType.USER_LOGIN)
-                .payload(payload)
-                .status(OutboxStatus.PENDING)
-                .retryCount(0)
-                .build();
-        outboxEventRepository.save(outboxEvent);
+        buildAndSaveOutboxEvent(loginEvent, OutboxEventType.USER_LOGIN);
 
         // Generate JWT token:
         return jwtUtils.generateToken(request.getEmail(), roles);
     }
-
 
     @Transactional
     public void saveNewUser(SignupRequest request) throws JsonProcessingException {
@@ -178,54 +217,22 @@ public class AuthService {
             throw new IllegalArgumentException("Email already registered");
         }
 
-        // making sure if the role exists in the role table or not...
-        Role userRole = userService.findRoleByName("ROLE_USER"); // this will return Role if present, else Throw an exception...
-
         // Creating new user...
-        User newUser = new User();
-        newUser.setName(request.getFullName());
-        newUser.getRoles().add(userRole); // setting "ROLE_USER"...
-        newUser.setEmail(request.getEmail());
-        newUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        newUser.setAge(request.getAge());
-        newUser.setKycStatus(KycStatus.NOT_SUBMITTED);
-        newUser.setPhoneNumber(request.getPhone());
-        newUser.setEmailVerified(false);
-        newUser.setAccountLocked(false);
-        newUser.setFailedAttempts(0);
+        User newUser = createNewUser(request);
 
         // Saving user in DB...
         userRepository.save(newUser); // Save disabled user...
 
         // Generate Verification Token...
         String tokenValue = UUID.randomUUID().toString();
-        EmailVerificationToken token = EmailVerificationToken.builder()
-                .token(tokenValue)
-                .user(newUser)
-                .expiryDate(LocalDateTime.now().plusMinutes(15))
-                .used(false)
-                .build();
+        EmailVerificationToken token = generateToken(newUser,tokenValue);
         tokenRepository.save(token);
 
-        // Creating Signup Event Payload...
-        UserRegisteredEvent event = new UserRegisteredEvent(
-                request.getEmail(),
-                tokenValue,
-                LocalDateTime.now()
-        );
-
-        // Create Signup Event Payload...
-        String payload = objectMapper.writeValueAsString(event);
+        // Creating Signup Event...
+        UserRegisteredEvent registrationEvent = userRegisteredEventBuilder.buildRegistrationEvent(request.getEmail(), tokenValue);
 
         // Saving Outbox Event...
-        OutboxEvent outboxEvent = OutboxEvent.builder()
-                .eventType(OutboxEventType.USER_REGISTERED)
-                .payload(payload)
-                .status(OutboxStatus.PENDING)
-                .retryCount(0)
-                .build();
-
-        outboxEventRepository.save(outboxEvent);
+        buildAndSaveOutboxEvent(registrationEvent,OutboxEventType.USER_REGISTERED);
     }
 
     @Transactional
@@ -263,17 +270,10 @@ public class AuthService {
     public void resendVerification(String email) throws JsonProcessingException {
 
         // If two resend requests hit at the exact same millisecond, we prevent both from generating tokens by using 'findByEmailForUpdate()' query...
-        User user = userRepository.findByEmailForUpdate(email)
-                .orElseThrow(() ->
-                        new InvalidTokenException("User not found"));
+        User user = findUser(email);
 
-        if (!user.getEmail().equals(email)) {
-            throw new IllegalStateException("Email doesn't belong to the user");
-        }
-
-        if (user.isEmailVerified()) {
-            throw new IllegalStateException("Email already verified");
-        }
+        // Apply required validations...
+        validateUser(user,email);
 
         // CoolDown Check : It will limit how often a user can request verification email...
         Optional<EmailVerificationToken> latestTokenOpt = tokenRepository
@@ -304,35 +304,14 @@ public class AuthService {
 
         // Generate new token...
         String newTokenValue = UUID.randomUUID().toString();
-
-        EmailVerificationToken newToken = EmailVerificationToken.builder()
-                .token(newTokenValue)
-                .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(15)) // how long a token is valid...
-                .used(false)
-                .build();
-
+        EmailVerificationToken newToken = generateToken(user,newTokenValue);
         tokenRepository.save(newToken);
 
-        // Creating Signup Event Payload...
-        UserRegisteredEvent event = new UserRegisteredEvent(
-                email,
-                newTokenValue,
-                LocalDateTime.now()
-        );
+        // Creating Signup Event...
+        UserRegisteredEvent registrationEvent = userRegisteredEventBuilder.buildRegistrationEvent(email, newTokenValue);
 
-        // Create Signup Event Payload...
-        String payload = objectMapper.writeValueAsString(event);
-
-        // Saving Outbox Event...
-        OutboxEvent outboxEvent = OutboxEvent.builder()
-                .eventType(OutboxEventType.USER_REGISTERED)
-                .payload(payload)
-                .status(OutboxStatus.PENDING)
-                .retryCount(0)
-                .build();
-
-        outboxEventRepository.save(outboxEvent);
+        // Save outBox event...
+        buildAndSaveOutboxEvent(registrationEvent,OutboxEventType.USER_REGISTERED);
     }
 }
 

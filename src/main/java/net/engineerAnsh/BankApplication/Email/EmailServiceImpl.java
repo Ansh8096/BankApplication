@@ -74,4 +74,21 @@ public class EmailServiceImpl implements EmailService {
 
         sendSimpleEmail(email, "New Login Detected", body);
     }
+
+    public void sendHtmlEmail(String to, String subject, String htmlBody) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true); // true = HTML
+
+            mailSender.send(message);
+            log.info("HTML email sent to {} for {}", to, subject);
+
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to send HTML email", ex);
+        }
+    }
 }

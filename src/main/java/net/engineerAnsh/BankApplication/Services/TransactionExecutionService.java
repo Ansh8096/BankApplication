@@ -94,7 +94,6 @@ public class TransactionExecutionService {
         return txn;
     }
 
-
     private void saveTransferEvents(Transaction txn)
             throws JsonProcessingException {
 

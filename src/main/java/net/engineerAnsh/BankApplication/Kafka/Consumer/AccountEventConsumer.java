@@ -26,16 +26,13 @@ public class AccountEventConsumer {
         };
     }
 
-
     @KafkaListener(topics = "account-events",
             groupId = "account-notification-group"
     )
     public void consumeAccountEvent(AccountNotificationEvent event) {
         log.info("Received account event: {}", event);
-        // It will build the message according to accountEvent type...
-        String body = emailTemplateService.buildAccountEmailBody(event);
-
-        emailService.sendSimpleEmail(
+        String body = emailTemplateService.buildAccountEmailBody(event); // It will build the message according to accountEvent type...
+        emailService.sendHtmlEmail(
                 event.getEmail(),
                 buildSubject(event), // build subject according to accountEvent type...
                 body

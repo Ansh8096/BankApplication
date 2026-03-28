@@ -58,7 +58,7 @@ public class AccountService {
         return account;
     }
 
-    private Account findAccount(String accountNumber) {
+    public Account findAccount(String accountNumber) {
         return accountRepository.findByAccountNumberAndAccountStatusNot(accountNumber, AccountStatus.CLOSED)
                 .orElseThrow(() -> new EntityNotFoundException("No active account found..."));
     }

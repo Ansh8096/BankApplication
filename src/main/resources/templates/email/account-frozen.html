@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Account Frozen</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+        <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; margin-top:20px; border-radius:10px; overflow:hidden;">
+
+                <!-- Header -->
+                <tr>
+                    <td style="padding:20px 30px; border-bottom:1px solid #e0e0e0;">
+                        <h2 style="margin:0; color:#2c3e50;">
+                            🏦 Bank of Ansh
+                        </h2>
+                    </td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                    <td style="padding:30px;">
+
+                        <p style="margin:0 0 15px;">Dear Customer,</p>
+
+                        <p style="margin:0 0 20px; font-size:16px;">
+                            Your account has been
+                            <b style="color:#f39c12;">temporarily frozen</b>.
+                        </p>
+
+                        <!-- Info Box -->
+                        <div style="background:#fff3e0; padding:20px; border-radius:8px; margin-bottom:20px;">
+                            <p style="margin:0 0 10px;">
+                                <b>Account Number:</b> <span th:text="${accountNumber}"></span>
+                            </p>
+                            <p style="margin:0;">
+                                <b>Frozen On:</b> <span th:text="${formattedDate}"></span>
+                            </p>
+                        </div>
+
+                        <p style="margin:0 0 15px;">
+                            While your account is frozen, transactions will not be allowed.
+                        </p>
+
+                        <!-- Optional reason -->
+                        <p style="margin:0 0 15px; color:#555;">
+                            This action may be due to security checks or administrative review.
+                        </p>
+
+                        <!-- Warning -->
+                        <p style="margin:0 0 20px; color:#e67e22; font-weight:bold;">
+                            ⚠️ Please contact our support team to restore access to your account.
+                        </p>
+
+                        <hr style="border:none; border-top:1px solid #e0e0e0; margin:20px 0;">
+
+                        <!-- Footer -->
+                        <p style="margin:0 0 5px;">Regards,</p>
+                        <p style="margin:0; font-weight:bold;">Bank Support Team</p>
+
+                        <p style="margin:10px 0;">
+                            📧 <a href="mailto:anshv8096@gmail.com" style="color:#3498db;">
+                            support@bankofansh.com
+                        </a>
+                        </p>
+
+                        <p style="color:#999; font-size:12px;">
+                            This is an automated message. Please do not reply to this email.
+                        </p>
+
+                    </td>
+                </tr>
+
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;line-height:1.6;">
+
+<table width="100%">
+    <tr>
+        <td align="center">
+
+            <table width="600" style="background:#ffffff;margin-top:20px;border-radius:10px;overflow:hidden;">
+
+                <!-- Header -->
+                <tr>
+                    <td style="padding:20px;border-bottom:1px solid #e0e0e0;">
+                        <b style="color:#2c3e50;font-size:20px;">🏦 Bank of Ansh</b>
+                    </td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                    <td style="padding:30px;color:#2c3e50;font-size:14px;">
+
+                        <p>Dear Customer,</p>
+
+                        <p>
+                            Thank you for registering with <b>Bank of Ansh</b>.
+                        </p>
+
+                        <p>
+                            To complete your account setup, please verify your email address by clicking the button below:
+                        </p>
+
+                        <!-- CTA Button -->
+                        <p style="text-align:center;margin:25px 0;">
+                            <a th:href="${verificationLink}" target="_blank"
+                               style="background:#27ae60;color:#ffffff;padding:12px 25px;
+          text-decoration:none;border-radius:6px;font-weight:bold;
+          display:inline-block;">
+                                Verify My Account
+                            </a>
+                        </p>
+
+                        <!-- Fallback Link -->
+                        <p style="font-size:13px;color:#555;">
+                            If the button doesn’t work, copy and paste this link into your browser:
+                        </p>
+
+                        <p style="word-break:break-all;font-size:13px;">
+                            <a th:href="${verificationLink}" target="_blank"
+                               style="color:#3498db;text-decoration:none;">
+                                <span th:text="${verificationLink}"></span>
+                            </a>
+                        </p>
+
+                        <!-- Expiry -->
+                        <p style="color:#c0392b;font-weight:bold;margin-top:15px;">
+                            ⚠ This verification link will expire in 15 minutes.
+                        </p>
+
+                        <hr style="border:none;border-top:1px solid #e0e0e0;margin:20px 0;">
+
+                        <!-- Footer -->
+                        <p>Regards,<br><b>Bank Support Team</b></p>
+
+                        <p>
+                            📧<a href="mailto:anshv8096@gmail.com?subject=Urgent Verification Issue"
+                               style="color:#3498db;text-decoration:none;">
+                                support@bankofansh.com
+                            </a>
+                        </p>
+
+                        <p style="color:#999;font-size:12px;">
+                            This is an automated email. Please do not reply.
+                        </p>
+
+                    </td>
+                </tr>
+
+            </table>
+
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

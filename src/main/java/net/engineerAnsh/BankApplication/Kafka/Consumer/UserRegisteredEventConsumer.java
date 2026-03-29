@@ -20,11 +20,7 @@ public class UserRegisteredEventConsumer {
     public void handleUserRegisteredEvent(UserRegisteredEvent event) {
         log.info("The verification token received for user: {}", event.getEmail());
         try {
-            emailService.sendVerificationEmail(
-                    event.getEmail(),
-                    event.getVerificationToken()
-            );
-            log.info("The verification email is sent successfully to: {}", event.getEmail());
+            emailService.sendVerificationEmail(event.getEmail(),event.getVerificationToken());
         } catch (Exception e) {
             log.error("Failed to send verification email to: {}", event.getEmail());
         }

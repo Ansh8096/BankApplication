@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionSuccessProducer;
-import net.engineerAnsh.BankApplication.Services.EmailTemplateService;
+import net.engineerAnsh.BankApplication.Email.EmailTemplateService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.retrytopic.TopicSuffixingStrategy;
@@ -39,7 +39,7 @@ public class TransactionNotificationConsumer {
             String body = emailTemplateService.buildTxnEmailBody(event);
 
             // sending the email...
-            emailService.sendSimpleEmail(event.getUserEmail(), subject, body);
+            emailService.sendHtmlEmail(event.getUserEmail(), subject, body);
 
             // publish a success event:
             transactionSuccessProducer.publishSuccess(event.getEventId(), event.getTransactionReference());

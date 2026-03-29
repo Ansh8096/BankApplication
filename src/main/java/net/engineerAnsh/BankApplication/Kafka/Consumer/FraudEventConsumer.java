@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
 import net.engineerAnsh.BankApplication.Services.AccountService;
-import net.engineerAnsh.BankApplication.Services.EmailTemplateService;
+import net.engineerAnsh.BankApplication.Email.EmailTemplateService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 

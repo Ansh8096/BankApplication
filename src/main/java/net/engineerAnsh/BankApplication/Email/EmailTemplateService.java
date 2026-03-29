@@ -1,10 +1,12 @@
-package net.engineerAnsh.BankApplication.Services;
+package net.engineerAnsh.BankApplication.Email;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.engineerAnsh.BankApplication.Email.event.TransactionEmailRequest;
 import net.engineerAnsh.BankApplication.Kafka.Event.AccountNotificationEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
+import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
 import net.engineerAnsh.BankApplication.Utils.CurrencyUtil;
 import org.springframework.stereotype.Service;
@@ -26,7 +28,11 @@ public class EmailTemplateService {
         return time.format(formatter);
     }
 
-    private String processTemplate(String templateName, AccountNotificationEvent event) {
+    private String formatUserName(String name){
+        return name.substring(0,1).toUpperCase() + name.substring(1).toLowerCase();
+    }
+
+    private String processTemplateForAccountEvents(String templateName, AccountNotificationEvent event) {
         Context context = new Context();
         context.setVariable("accountNumber", AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()));
         context.setVariable("accountType", event.getAccountType());
@@ -34,14 +40,61 @@ public class EmailTemplateService {
         return templateEngine.process(templateName, context);
     }
 
+    private TransactionEmailRequest mapToRequest(TransactionCompletedEvent event) {
+        return new TransactionEmailRequest(
+                event.getAmount(),
+                event.getFromAccountMasked() != null
+                        ? event.getFromAccountMasked()
+                        : event.getToAccountMasked(),
+                formatDate(event.getCreatedAt()),
+                event.getTransactionReference(),
+                event.getRemark()
+        );
+    }
+
+    private String processTemplateForTxn(String templateName, TransactionEmailRequest req) {
+        Context context = new Context();
+        context.setVariable("amount", CurrencyUtil.format(req.getAmount()).replaceAll("\\.00$", ""));
+        context.setVariable("accountNumber",req.getAccountNumber());
+        context.setVariable("date", req.getDate());
+        context.setVariable("txnId", req.getTxnId());
+        context.setVariable("remark", req.getRemark());
+        return templateEngine.process(templateName, context);
+    }
+
     public String buildAccountEmailBody(AccountNotificationEvent event) {
         return switch (event.getEventType()) {
-            case ACCOUNT_CREATED -> processTemplate("email/account-created", event);
-            case ACCOUNT_ACTIVATED -> processTemplate("email/account-activated", event);
-            case ACCOUNT_BLOCKED -> processTemplate("email/account-blocked", event);
-            case ACCOUNT_FROZEN -> processTemplate("email/account-frozen", event);
-            case ACCOUNT_CLOSED -> processTemplate("email/account-closed", event);
+            case ACCOUNT_CREATED -> processTemplateForAccountEvents("email/account-created", event);
+            case ACCOUNT_ACTIVATED -> processTemplateForAccountEvents("email/account-activated", event);
+            case ACCOUNT_BLOCKED -> processTemplateForAccountEvents("email/account-blocked", event);
+            case ACCOUNT_FROZEN -> processTemplateForAccountEvents("email/account-frozen", event);
+            case ACCOUNT_CLOSED -> processTemplateForAccountEvents("email/account-closed", event);
         };
+    }
+
+    public String buildTxnEmailBody(TransactionCompletedEvent event) {
+        TransactionEmailRequest req = mapToRequest(event);
+        return switch (event.getType()) {
+            case "TRANSFER_SENT", "WITHDRAW" -> processTemplateForTxn("email/debit",req);
+            case "TRANSFER_RECEIVED", "DEPOSIT" -> processTemplateForTxn("email/credit",req);
+            default -> "";
+        };
+    }
+
+    public String buildVerificationEmail(String verificationLink) {
+        Context context = new Context();
+        context.setVariable("verificationLink", verificationLink);
+        return templateEngine.process("email/verify", context);
+    }
+
+    public String buildLoginAlertEmail(UserLoginEvent loginEvent, String secureLink) {
+        Context context = new Context();
+        context.setVariable("name", formatUserName(loginEvent.getUserName()));
+        context.setVariable("ip", loginEvent.getIpAddress());
+        context.setVariable("device", loginEvent.getUserAgent());
+        context.setVariable("time", formatDate(loginEvent.getOccurredAt()));
+        context.setVariable("secureLink", secureLink);
+        return templateEngine.process("email/login-alert", context);
     }
 
     public String buildFraudDetectedEmailBody(FraudDetectedEvent event) {
@@ -95,36 +148,5 @@ public class EmailTemplateService {
             default -> "";
         };
     }
-
-    public String buildTxnEmailBody(TransactionCompletedEvent event) {
-        return String.format(
-                """
-                        Hello,
-                        
-                        A transaction has been completed on your account.
-                        
-                        Reference: %s
-                        Type: %s
-                        Amount: ₹%s
-                        From: %s
-                        To: %s
-                        Time: %s
-                        Remark: %s
-                        
-                        Thank you,
-                        BANK OF ANSH
-                        """.formatted(
-                        event.getTransactionReference(),
-                        event.getType(),
-                        event.getAmount(),
-                        event.getFromAccountMasked(),
-                        event.getToAccountMasked(),
-                        event.getCreatedAt(),
-                        event.getRemark() != null ? event.getRemark() : "-"
-                ));
-    }
-
-
-
 
 }

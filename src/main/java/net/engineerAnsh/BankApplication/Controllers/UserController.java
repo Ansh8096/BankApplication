@@ -3,7 +3,6 @@ package net.engineerAnsh.BankApplication.Controllers;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.User;
-import net.engineerAnsh.BankApplication.Services.AuthService;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,7 +16,6 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
-    private final AuthService authService;
 
     @GetMapping("/me")
     public ResponseEntity<String> me() {

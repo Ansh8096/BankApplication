@@ -4,6 +4,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
+    private final EmailTemplateService emailTemplateService;
 
     @Override
     public void sendSimpleEmail(String to, String subject, String body) {
@@ -55,24 +57,17 @@ public class EmailServiceImpl implements EmailService {
     private String baseUrl;
 
     public void sendVerificationEmail(String toEmail, String token) {
-        String verificationLink = baseUrl +
-                "/auth/verify?token=" + token;
-        String subject = "Verify Your Account - Bank Application";
-        String text = "Thank you for registering.\n\n" +
-                "Click the link below to verify your account:\n" +
-                verificationLink +
-                "\n\nThis link will expire in 15 minutes.";
-        sendSimpleEmail(toEmail, subject, text);
+        String verificationLink = baseUrl + "/auth/verify?token=" + token;
+        String subject = "Verify Your Email - Bank of Ansh";
+        String body = emailTemplateService.buildVerificationEmail(verificationLink);
+        sendHtmlEmail(toEmail, subject, body);
     }
 
-    public void sendLoginAlertEmail(String email, String ip, String device) {
-
-        String body = "A new login to your account was detected.\n\n" +
-                "IP Address: " + ip + "\n" +
-                "Device: " + device + "\n\n" +
-                "If this was not you, please secure your account.";
-
-        sendSimpleEmail(email, "New Login Detected", body);
+    public void sendLoginAlertEmail(UserLoginEvent loginEvent) {
+        String secureLink = baseUrl + "/auth/health-check";
+        String subject = "New Login Detected";
+        String body = emailTemplateService.buildLoginAlertEmail(loginEvent,secureLink);
+        sendHtmlEmail(loginEvent.getEmail(), subject, body);
     }
 
     public void sendHtmlEmail(String to, String subject, String htmlBody) {
@@ -85,7 +80,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlBody, true); // true = HTML
 
             mailSender.send(message);
-            log.info("HTML email sent to {} for {}", to, subject);
+            log.info("HTML email is sent to {}, reason: {}", to, subject);
 
         } catch (Exception ex) {
             throw new RuntimeException("Failed to send HTML email", ex);

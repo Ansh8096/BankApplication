@@ -117,5 +117,4 @@ public class AuthController {
                 "If your email is not verified, a verification link has been sent."
         );
     }
-
 }

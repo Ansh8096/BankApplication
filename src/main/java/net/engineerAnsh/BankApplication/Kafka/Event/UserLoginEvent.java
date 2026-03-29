@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserLoginEvent {
-
+    private String userName;
     private String email;
     private String ipAddress;
     private String userAgent;

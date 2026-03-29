@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+
+<table width="100%" style="padding:15px;">
+    <tr>
+        <td align="center">
+
+            <table width="600" style="background:#ffffff;border-radius:10px;overflow:hidden;">
+
+                <!-- Header -->
+                <tr>
+                    <td style="padding:18px;border-bottom:1px solid #e0e0e0;">
+                        <b style="color:#2c3e50;font-size:18px;">🏦 Bank of Ansh</b>
+                    </td>
+                </tr>
+
+                <!-- Title -->
+                <tr>
+                    <td style="text-align:center;padding:18px 20px 0;">
+                        <h2 style="margin:0;color:#333;">🔐 New Login Detected</h2>
+                    </td>
+                </tr>
+
+                <!-- Body -->
+                <tr>
+                    <td style="padding:22px;color:#555;font-size:14px;line-height:1.5;">
+
+                        <p style="margin:0 0 12px;">
+                            Hello <span th:text="${name}">User</span>,
+                        </p>
+
+                        <p style="margin:0 0 12px;">
+                            A new login to your account was detected. Here are the details:
+                        </p>
+
+                        <!-- Details Box -->
+                        <table width="100%" style="background:#f9fafb;border-radius:8px;margin-top:10px;">
+                            <tr>
+                                <td style="padding:14px;line-height:1.5;">
+
+                                    <p style="margin:0 0 8px;">
+                                        <strong>📍 IP Address:</strong>
+                                        <span th:text="${ip}"></span>
+                                    </p>
+
+                                    <p style="margin:0 0 8px;">
+                                        <strong>💻 Device:</strong>
+                                        <span th:text="${device}"></span>
+                                    </p>
+
+                                    <p style="margin:0;">
+                                        <strong>⏰ Time:</strong>
+                                        <span th:text="${time}"></span>
+                                    </p>
+
+                                </td>
+                            </tr>
+                        </table>
+
+                        <p style="margin-top:15px;">
+                            If this was you, no action is required.
+                        </p>
+
+                        <p style="color:#d9534f;font-weight:bold;margin:10px 0;">
+                            ⚠ If you do NOT recognize this activity, please secure your account immediately to prevent unauthorized access.
+                        </p>
+
+                        <p style="margin:8px 0;">
+                            We recommend changing your password and reviewing recent activity.
+                        </p>
+
+                        <p style="margin:8px 0;">
+                            If you recently logged in from a new device, you can ignore this message.
+                        </p>
+
+                    </td>
+                </tr>
+
+                <!-- CTA BUTTON -->
+                <tr>
+                    <td align="center" style="padding:8px 20px;">
+                        <a th:href="${secureLink}" target="_blank"
+                           style="background:#e74c3c;color:#fff;padding:11px 22px;
+          text-decoration:none;border-radius:6px;font-weight:bold;
+          display:inline-block;">
+                            Secure Account
+                        </a>
+                    </td>
+                </tr>
+
+                <!-- Fallback Link -->
+                <tr>
+                    <td style="padding:10px 20px 0;color:#555;font-size:13px;">
+
+                        <p style="margin:0 0 5px;">
+                            If the button doesn’t work, open this link:
+                        </p>
+
+                        <p style="word-break:break-all;margin:0;">
+                            <a th:href="${secureLink}" target="_blank"
+                               style="color:#3498db;text-decoration:none;">
+                                <span th:text="${secureLink}"></span>
+                            </a>
+                        </p>
+
+                    </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                    <td style="text-align:center;font-size:12px;color:#999;padding:12px;">
+
+                        <p style="margin:4px 0;">
+                            Need help?
+                            <a href="mailto:anshv8096@gmail.com?subject=Urgent Login Issue"
+                               style="color:#3498db;text-decoration:none;">
+                                support@bankofansh.com
+                            </a>
+                        </p>
+
+                        <p style="margin:4px 0;">
+                            © 2026 Bank of Ansh. All rights reserved.
+                        </p>
+
+                    </td>
+                </tr>
+
+            </table>
+
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

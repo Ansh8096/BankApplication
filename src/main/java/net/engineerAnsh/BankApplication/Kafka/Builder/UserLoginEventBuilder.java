@@ -7,8 +7,9 @@ import java.time.LocalDateTime;
 @Service
 public class UserLoginEventBuilder {
 
-    public UserLoginEvent buildLoginEvent(String email, String ip, String userAgent){
+    public UserLoginEvent buildLoginEvent(String userName, String email, String ip, String userAgent){
         return new UserLoginEvent(
+                userName,
                 email,
                 ip,
                 userAgent,

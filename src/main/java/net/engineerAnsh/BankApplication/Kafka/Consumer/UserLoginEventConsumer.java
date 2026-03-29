@@ -20,12 +20,7 @@ public class UserLoginEventConsumer {
     public void handleUserLoginEvent(UserLoginEvent event) {
         log.info("The successfully login event received for user: {}", event.getEmail());
         try {
-            emailService.sendLoginAlertEmail(
-                    event.getEmail(),
-                    event.getIpAddress(),
-                    event.getUserAgent()
-            );
-            log.info("The login email is sent successfully to: {}", event.getEmail());
+            emailService.sendLoginAlertEmail(event);
         } catch (Exception e) {
             log.error("Failed to send login email to: {}", event.getEmail());
         }

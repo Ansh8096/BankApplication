@@ -201,7 +201,7 @@ public class AuthService {
                 .toList();
 
         // Creating the login event...
-        UserLoginEvent loginEvent = userLoginEventBuilder.buildLoginEvent(request.getEmail(), ip, userAgent);
+        UserLoginEvent loginEvent = userLoginEventBuilder.buildLoginEvent(user.getName(), request.getEmail(), ip, userAgent);
 
         // Saving Outbox Event...
         buildAndSaveOutboxEvent(loginEvent, OutboxEventType.USER_LOGIN);

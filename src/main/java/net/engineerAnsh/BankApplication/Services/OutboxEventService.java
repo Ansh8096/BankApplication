@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
-import net.engineerAnsh.BankApplication.Enum.OutboxEventType;
-import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxEventType;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxStatus;
 import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;
 import org.springframework.stereotype.Service;
 

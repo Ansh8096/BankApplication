@@ -3,15 +3,13 @@ package net.engineerAnsh.BankApplication.Controllers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Dto.Kyc.KycReviewRequest;
+import net.engineerAnsh.BankApplication.Dto.Kyc.KycStatusResponse;
 import net.engineerAnsh.BankApplication.Dto.Kyc.KycSubmissionRequest;
-import net.engineerAnsh.BankApplication.Entity.KycVerification;
 import net.engineerAnsh.BankApplication.Security.UserDetails.CustomUserDetails;
 import net.engineerAnsh.BankApplication.Services.KycService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -29,27 +27,21 @@ public class KycController {
         return ResponseEntity.ok("Kyc document is submitted successfully...");
     }
 
+    @GetMapping("/status/view/{referenceId}")
+    public ResponseEntity<KycStatusResponse> getStatus(
+            @PathVariable String referenceId) {
+        return ResponseEntity.ok(
+                kycService.getKycStatus(referenceId)
+        );
+    }
+
     @GetMapping("/status")
-    public ResponseEntity<?> getKycStatus(
-            @AuthenticationPrincipal CustomUserDetails user) {
-
-        KycVerification userKyc = kycService.getUserKyc(user.getUserId());
-        return ResponseEntity.ok().body(userKyc.getStatus());
+    public ResponseEntity<KycStatusResponse> getKycStatus(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestParam String referenceId) {
+        KycStatusResponse userKycStatus = kycService.getKycStatusOfUser(user.getUserId(),referenceId);
+        return ResponseEntity.ok().body(userKycStatus);
     }
 
-    @GetMapping("/admin/pending")
-    public List<KycVerification> getPendingKyc() {
-        return kycService.getPendingKyc();
-    }
-
-    @PostMapping("/admin/{kycId}/review")
-    public ResponseEntity<String> reviewKyc(
-            @PathVariable Long kycId,
-            @AuthenticationPrincipal CustomUserDetails admin,
-            @Valid @RequestBody KycReviewRequest request) throws JsonProcessingException {
-
-        kycService.reviewKyc(kycId, admin.getUsername(), request);
-        return ResponseEntity.ok("Documents are successfully reviewed...");
-    }
 
 }

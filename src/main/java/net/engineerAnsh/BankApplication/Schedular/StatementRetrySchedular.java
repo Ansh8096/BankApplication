@@ -3,7 +3,7 @@ package net.engineerAnsh.BankApplication.Schedular;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.StatementJob;
-import net.engineerAnsh.BankApplication.Enum.StatementJobStatus;
+import net.engineerAnsh.BankApplication.Enum.statement.StatementJobStatus;
 import net.engineerAnsh.BankApplication.Repository.StatementJobRepository;
 import net.engineerAnsh.BankApplication.Services.StatementJobService;
 import org.springframework.scheduling.annotation.Scheduled;

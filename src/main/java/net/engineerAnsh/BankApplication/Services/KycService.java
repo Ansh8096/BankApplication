@@ -6,12 +6,13 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Dto.Kyc.KycReviewRequest;
+import net.engineerAnsh.BankApplication.Dto.Kyc.KycStatusResponse;
 import net.engineerAnsh.BankApplication.Dto.Kyc.KycSubmissionRequest;
 import net.engineerAnsh.BankApplication.Entity.KycVerification;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.User;
-import net.engineerAnsh.BankApplication.Enum.KycStatus;
-import net.engineerAnsh.BankApplication.Enum.OutboxEventType;
+import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxEventType;
 import net.engineerAnsh.BankApplication.Kafka.Enums.KycEventType;
 import net.engineerAnsh.BankApplication.Kafka.Builder.KycEventBuilder;
 import net.engineerAnsh.BankApplication.Kafka.Event.KycEvent;
@@ -39,7 +40,7 @@ public class KycService {
         outboxEventService.publishOutBoxEvent(outboxKycEvent);
     }
 
-    private void setKycRecord(KycVerification kyc, KycSubmissionRequest request){
+    private void setKycRecord(KycVerification kyc, KycSubmissionRequest request) {
         kyc.setDocumentType(request.getDocumentType().name());
         kyc.setDocumentNumber(request.getDocumentNumber());
         kyc.setDocumentUrl(request.getDocumentUrl());
@@ -48,6 +49,31 @@ public class KycService {
         kyc.setRejectionReason(null);
         kyc.setReviewedAt(null);
         kyc.setReviewedBy(null);
+    }
+
+    private KycVerification findKycRecord(String referenceId){
+        return kycRepository.findByReferenceId(referenceId)
+                .orElseThrow(()-> new EntityNotFoundException("No KYC found"));
+    }
+
+    private void validateKycRecord(Long userId, String referenceId){
+        KycVerification kyc = kycRepository.findByUserUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("No active user found"));
+
+        if(!kyc.getReferenceId().equals(referenceId)){
+            throw new EntityNotFoundException("No KYC found");
+        }
+    }
+
+    private KycStatusResponse mapToKycResponse(KycVerification kyc){
+        return new KycStatusResponse(
+                kyc.getReferenceId(),
+                kyc.getStatus(),
+                kyc.getDocumentType(),
+                kyc.getSubmittedAt(),
+                kyc.getDocumentNumber(),
+                kyc.getDocumentUrl()
+        );
     }
 
     @Transactional
@@ -77,34 +103,44 @@ public class KycService {
         // Sets details of kyc record
         setKycRecord(kyc, request);
 
+        kycRepository.save(kyc);
+
         KycEvent kycSubmitEvent = kycEventBuilder
-                .buildKycEvent(user, KycEventType.SUBMITTED, null, request.getDocumentType().name());
+                .buildKycEvent(user, KycEventType.SUBMITTED, null, request.getDocumentType().name(), kyc.getReferenceId());
 
         user.setKycStatus(KycStatus.UNDER_REVIEW);
         userRepository.save(user);
 
         buildAndSaveOutboxEvent(kycSubmitEvent);
-        kycRepository.save(kyc);
     }
 
-    public KycVerification getUserKyc(Long userId) {
-        return kycRepository.findByUserUserId(userId)
-                .orElseThrow(() -> new RuntimeException("KYC not submitted"));
+    public KycStatusResponse getKycStatus(String referenceId) {
+        KycVerification kyc = findKycRecord(referenceId);
+        return mapToKycResponse(kyc);
+    }
+
+    public KycStatusResponse getKycStatusOfUser(Long userId, String referenceId) {
+        KycVerification kyc = findKycRecord(referenceId);
+        validateKycRecord(userId,kyc.getReferenceId());
+        return mapToKycResponse(kyc);
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    public List<KycVerification> getPendingKyc() {
-        return kycRepository.findByStatus(KycStatus.SUBMITTED);
+    public List<KycStatusResponse> getPendingKyc() {
+        return kycRepository.findByStatus(KycStatus.SUBMITTED)
+                .stream().
+                map(this::mapToKycResponse)
+                .toList();
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
-    public void reviewKyc(Long kycId, String adminEmail, KycReviewRequest request) throws JsonProcessingException {
+    public void reviewKyc(String kycId, String adminEmail, KycReviewRequest request) throws JsonProcessingException {
 
-        KycVerification kyc = kycRepository.findById(kycId)
+        KycVerification kyc = kycRepository.findByReferenceId(kycId)
                 .orElseThrow(() -> new EntityNotFoundException("KYC not found"));
 
-        if(kyc.getStatus() != KycStatus.SUBMITTED){
+        if (kyc.getStatus() != KycStatus.SUBMITTED) {
             throw new IllegalStateException("This Kyc documents are already reviewed...");
         }
 
@@ -121,7 +157,7 @@ public class KycService {
             user.setKycStatus(KycStatus.REJECTED);
 
             KycEvent kycRejectedEvent = kycEventBuilder.buildKycEvent(
-                    user, KycEventType.REJECTED, request.getRejectionReason(), null);
+                    user, KycEventType.REJECTED, request.getRejectionReason(), kyc.getDocumentType(), kyc.getReferenceId());
 
             buildAndSaveOutboxEvent(kycRejectedEvent);
 
@@ -130,8 +166,8 @@ public class KycService {
             kyc.setStatus(KycStatus.APPROVED);
             user.setKycStatus(KycStatus.APPROVED);
 
-            KycEvent kycApprovedEvent = kycEventBuilder
-                    .buildKycEvent(user, KycEventType.APPROVED, null, null);
+            KycEvent kycApprovedEvent = kycEventBuilder.buildKycEvent(
+                    user, KycEventType.APPROVED, null, kyc.getDocumentType(), kyc.getReferenceId());
 
             buildAndSaveOutboxEvent(kycApprovedEvent);
         }

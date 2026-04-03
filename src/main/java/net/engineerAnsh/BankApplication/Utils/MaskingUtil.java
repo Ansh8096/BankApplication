@@ -1,6 +1,6 @@
 package net.engineerAnsh.BankApplication.Utils;
 
-public class AccountMaskingUtil {
+public class MaskingUtil {
 
     public static String maskAccountNumber(String accountNo){
         if(accountNo == null || accountNo.length() <= 6){
@@ -12,4 +12,12 @@ public class AccountMaskingUtil {
 
         return (prefix + "****" + last4Digits);
     }
+
+    public static String maskEmail(String email) {
+        int at = email.indexOf("@");
+        if (at <= 2) return email;
+
+        return email.substring(0, 2) + "****" + email.substring(at);
+    }
+
 }

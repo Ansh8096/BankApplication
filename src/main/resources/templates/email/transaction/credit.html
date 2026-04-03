@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<body style="margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, Helvetica, sans-serif; line-height:1.6;">
+<body style="margin:0; padding:0; background:#f4f6f8; font-family:Arial, Helvetica, sans-serif; line-height:1.6;">
 
 <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
@@ -12,9 +12,7 @@
                 <!-- Header -->
                 <tr>
                     <td style="padding:20px 30px; border-bottom:1px solid #e0e0e0;">
-                        <h2 style="margin:0; color:#2c3e50;">
-                            🏦 Bank of Ansh
-                        </h2>
+                        <h2 style="margin:0; color:#2c3e50;">🏦 Bank of Ansh</h2>
                     </td>
                 </tr>
 
@@ -24,42 +22,54 @@
 
                         <p style="margin:0 0 15px;">Dear Customer,</p>
 
-                        <p style="margin:0 0 25px; font-size:16px;">
-                            Your
-                            <b th:text="${accountType}">SAVINGS</b>
-                            account has been
-                            <span style="color:#27ae60; font-weight:bold;">successfully activated</span>.
+                        <p style="margin:0 0 20px; font-size:16px;">
+                            You have received
+                            <span style="color:#229954; font-size:20px; font-weight:bold;">
+<span th:text="${amount}"></span>
+</span>
+                            in your account.
                         </p>
 
                         <!-- Info Box -->
                         <table width="100%" cellpadding="0" cellspacing="0"
                                style="background:#eafaf1; border-radius:8px; margin-bottom:20px;">
                             <tr>
-                                <td style="padding:20px;">
+                                <td style="padding:20px; color:#2c3e50;">
+
                                     <p style="margin:0 0 10px;">
-                                        <b style="color:#2c3e50;">Account Number:</b>
+                                        <b style="font-weight:600;">Account:</b>
                                         <span th:text="${accountNumber}"></span>
                                     </p>
-                                    <p style="margin:0;">
-                                        <b style="color:#2c3e50;">Activated On:</b>
-                                        <span th:text="${formattedDate}"></span>
+
+                                    <p style="margin:0 0 10px;">
+                                        <b style="font-weight:600;">Date:</b>
+                                        <span th:text="${date}"></span>
                                     </p>
+
+                                    <p style="margin:0 0 10px;">
+                                        <b style="font-weight:600;">Transaction ID:</b>
+                                        <span th:text="${txnId}"></span>
+                                    </p>
+
+                                    <p style="margin:0;">
+                                        <b style="font-weight:600;">Remark:</b>
+                                        <span th:text="${remark}"></span>
+                                    </p>
+
                                 </td>
                             </tr>
                         </table>
 
                         <p style="margin:0 0 15px;">
-                            Your account is now fully operational and ready for secure use.
-                            You can now securely perform transactions using your account.
+                            Thank you for banking with us. We appreciate your trust.
                         </p>
 
                         <!-- Alert -->
-                        <p style="margin:20px 0 20px; color:#c0392b; font-weight:bold;">
-                            ⚠️ If you did not initiate this request, please contact our support team immediately.
+                        <p style="margin:15px 0 15px; color:#c0392b; font-weight:bold; line-height:1.5;">
+                            ⚠️ If you did not initiate this transaction, please contact our support team immediately.
                         </p>
-
                         <!-- Divider -->
-                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+                        <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                                 <td style="border-top:1px solid #e0e0e0;"></td>
                             </tr>
@@ -70,9 +80,10 @@
                         <p style="margin:0; font-weight:bold;">Bank Support Team</p>
 
                         <p style="margin:10px 0;">
-                            📧 <a href="mailto:anshv8096@gmail.com" style="color:#3498db;">
-                            support@bankofansh.com
-                        </a>
+                            <a href="mailto:anshv8096@gmail.com?subject=Urgent Transaction Issue"
+                               style="color:#3498db; text-decoration:none;">
+                                support@bankofansh.com
+                            </a>
                         </p>
 
                         <p style="color:#999; font-size:12px;">

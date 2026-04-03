@@ -64,9 +64,8 @@ public class EmailServiceImpl implements EmailService {
     }
 
     public void sendLoginAlertEmail(UserLoginEvent loginEvent) {
-        String secureLink = baseUrl + "/auth/health-check";
         String subject = "New Login Detected";
-        String body = emailTemplateService.buildLoginAlertEmail(loginEvent,secureLink);
+        String body = emailTemplateService.buildLoginAlertEmail(loginEvent);
         sendHtmlEmail(loginEvent.getEmail(), subject, body);
     }
 

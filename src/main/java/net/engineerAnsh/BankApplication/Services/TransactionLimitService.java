@@ -2,7 +2,7 @@ package net.engineerAnsh.BankApplication.Services;
 
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Config.TransactionLimitConfig;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
 import net.engineerAnsh.BankApplication.Utils.DateRangeUtil;
 import org.springframework.stereotype.Service;

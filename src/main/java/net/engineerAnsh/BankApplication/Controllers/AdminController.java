@@ -1,21 +1,26 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.Auth.AssignRoleRequest;
+import net.engineerAnsh.BankApplication.Dto.Kyc.KycReviewRequest;
+import net.engineerAnsh.BankApplication.Dto.Kyc.KycStatusResponse;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Entity.User;
+import net.engineerAnsh.BankApplication.Security.UserDetails.CustomUserDetails;
 import net.engineerAnsh.BankApplication.Services.AccountService;
 import net.engineerAnsh.BankApplication.Services.AdminStatementService;
+import net.engineerAnsh.BankApplication.Services.KycService;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
-
 
 @PreAuthorize("hasRole('ADMIN')") // hasRole("ADMIN") → ROLE_ADMIN → MATCH ...
 @RestController
@@ -27,6 +32,7 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
     private final AdminStatementService adminStatementService;
     private final EmailServiceImpl emailService;
     private final AccountService accountService;
+    private final KycService kycService;
 
     @GetMapping("/get-all-users")
     public ResponseEntity<List<User>> getAllUsers() {
@@ -102,6 +108,21 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
             throws AccessDeniedException, JsonProcessingException {
         accountService.closeTheAccount(accountNumber);
         return ResponseEntity.ok().body("Account is successfully closed...");
+    }
+
+    @GetMapping("/api/v1/kyc/pending")
+    public List<KycStatusResponse> getPendingKyc() {
+        return kycService.getPendingKyc();
+    }
+
+    @PostMapping("api/v1/kyc/{kycId}/review")
+    public ResponseEntity<String> reviewKyc(
+            @PathVariable String kycId,
+            @AuthenticationPrincipal CustomUserDetails admin,
+            @Valid @RequestBody KycReviewRequest request) throws JsonProcessingException {
+
+        kycService.reviewKyc(kycId, admin.getUsername(), request);
+        return ResponseEntity.ok("Documents are successfully reviewed...");
     }
 
 }

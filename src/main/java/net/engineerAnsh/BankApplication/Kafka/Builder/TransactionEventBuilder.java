@@ -3,7 +3,7 @@ package net.engineerAnsh.BankApplication.Kafka.Builder;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
-import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.Utils.MaskingUtil;
 import org.springframework.stereotype.Service;
 import java.util.UUID;
 
@@ -20,10 +20,10 @@ public class TransactionEventBuilder {
                 txn.getStatus().name(),
                 txn.getAmount(),
                 txn.getFromAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
+                        ? MaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
                         : null,
                 txn.getToAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
+                        ? MaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
                         : null,
                 txn.getCreatedAt(),
                 userEmail,
@@ -39,13 +39,13 @@ public class TransactionEventBuilder {
                 "TRANSFER_SENT",
                 txn.getStatus().name(),
                 txn.getAmount(),
-                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
-                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
+                MaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
+                MaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
                 txn.getCreatedAt(),
                 txn.getFromAccount().getUser().getEmail(),
                 (txn.getRemark() != null && !txn.getRemark().isEmpty())
                         ? txn.getRemark()
-                        : txn.getAmount() + " Sent to A/C " + AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
+                        : txn.getAmount() + " Sent to A/C " + MaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber())
         );
     }
 
@@ -57,13 +57,13 @@ public class TransactionEventBuilder {
                 "TRANSFER_RECEIVED",
                 txn.getStatus().name(),
                 txn.getAmount(),
-                AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
-                AccountMaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
+                MaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber()),
+                MaskingUtil.maskAccountNumber(txn.getToAccount().getAccountNumber()),
                 txn.getCreatedAt(),
                 txn.getToAccount().getUser().getEmail(),
                 (txn.getRemark() != null && !txn.getRemark().isEmpty())
                         ? txn.getRemark()
-                        : txn.getAmount() + " Received from A/C " + AccountMaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
+                        : txn.getAmount() + " Received from A/C " + MaskingUtil.maskAccountNumber(txn.getFromAccount().getAccountNumber())
         );
     }
 

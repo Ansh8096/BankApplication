@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.engineerAnsh.BankApplication.Enum.StatementJobStatus;
+import net.engineerAnsh.BankApplication.Enum.statement.StatementJobStatus;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 

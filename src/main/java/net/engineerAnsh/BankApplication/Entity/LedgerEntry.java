@@ -2,7 +2,7 @@ package net.engineerAnsh.BankApplication.Entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import net.engineerAnsh.BankApplication.Enum.LedgerEntryType;
+import net.engineerAnsh.BankApplication.Enum.ledgerEntry.LedgerEntryType;
 import org.hibernate.annotations.CreationTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

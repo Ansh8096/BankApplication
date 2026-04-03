@@ -3,12 +3,10 @@ package net.engineerAnsh.BankApplication.Email;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Email.event.TransactionEmailRequest;
-import net.engineerAnsh.BankApplication.Kafka.Event.AccountNotificationEvent;
-import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
-import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
-import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
-import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.Kafka.Event.*;
+import net.engineerAnsh.BankApplication.Utils.MaskingUtil;
 import net.engineerAnsh.BankApplication.Utils.CurrencyUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
@@ -22,19 +20,22 @@ public class EmailTemplateService {
 
     private final SpringTemplateEngine templateEngine;
 
+    @Value("${app.base-url}")
+    private String baseUrl;
+
     private String formatDate(LocalDateTime time) {
         DateTimeFormatter formatter =
                 DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
         return time.format(formatter);
     }
 
-    private String formatUserName(String name){
-        return name.substring(0,1).toUpperCase() + name.substring(1).toLowerCase();
+    private String formatUserName(String name) {
+        return name.substring(0, 1).toUpperCase() + name.substring(1).toLowerCase();
     }
 
     private String processTemplateForAccountEvents(String templateName, AccountNotificationEvent event) {
         Context context = new Context();
-        context.setVariable("accountNumber", AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()));
+        context.setVariable("accountNumber", MaskingUtil.maskAccountNumber(event.getAccountNumber()));
         context.setVariable("accountType", event.getAccountType());
         context.setVariable("formattedDate", formatDate(event.getTimestamp()));
         return templateEngine.process(templateName, context);
@@ -55,28 +56,53 @@ public class EmailTemplateService {
     private String processTemplateForTxn(String templateName, TransactionEmailRequest req) {
         Context context = new Context();
         context.setVariable("amount", CurrencyUtil.format(req.getAmount()).replaceAll("\\.00$", ""));
-        context.setVariable("accountNumber",req.getAccountNumber());
+        context.setVariable("accountNumber", req.getAccountNumber());
         context.setVariable("date", req.getDate());
         context.setVariable("txnId", req.getTxnId());
         context.setVariable("remark", req.getRemark());
         return templateEngine.process(templateName, context);
     }
 
+    private String processTemplateForKyc(KycEvent event, String templateName) {
+        Context context = new Context();
+        context.setVariable("name", formatUserName(event.getName()));
+        context.setVariable("email", MaskingUtil.maskEmail(event.getEmail()));
+        context.setVariable("referenceId", event.getReferenceId());
+        context.setVariable("documentType", event.getDocumentType());
+        context.setVariable("reason", event.getReason());
+        context.setVariable("time", formatDate(event.getOccurredAt()));
+        String trackLink = baseUrl + "/api/v1/kyc/status/view/" + event.getReferenceId();
+        context.setVariable("trackLink", trackLink);
+        return templateEngine.process(templateName, context);
+    }
+
+    private String processTemplateForFrauds(FraudDetectedEvent event, String templateName) {
+        Context context = new Context();
+        context.setVariable("name", formatUserName(event.getName()));
+        context.setVariable("accountNumber", event.getAccountNumber());
+        context.setVariable("reason", event.getReason());
+        context.setVariable("amount", CurrencyUtil.format(event.getAmount()).replaceAll("\\.00$", ""));
+        context.setVariable("transactionType", event.getTransactionType());
+        context.setVariable("transactionReference", event.getTransactionReference());
+        context.setVariable("time", formatDate(event.getTimestamp()));
+        return templateEngine.process(templateName, context);
+    }
+
     public String buildAccountEmailBody(AccountNotificationEvent event) {
         return switch (event.getEventType()) {
-            case ACCOUNT_CREATED -> processTemplateForAccountEvents("email/account-created", event);
-            case ACCOUNT_ACTIVATED -> processTemplateForAccountEvents("email/account-activated", event);
-            case ACCOUNT_BLOCKED -> processTemplateForAccountEvents("email/account-blocked", event);
-            case ACCOUNT_FROZEN -> processTemplateForAccountEvents("email/account-frozen", event);
-            case ACCOUNT_CLOSED -> processTemplateForAccountEvents("email/account-closed", event);
+            case ACCOUNT_CREATED -> processTemplateForAccountEvents("email/account/created", event);
+            case ACCOUNT_ACTIVATED -> processTemplateForAccountEvents("email/account/activated", event);
+            case ACCOUNT_BLOCKED -> processTemplateForAccountEvents("email/account/blocked", event);
+            case ACCOUNT_FROZEN -> processTemplateForAccountEvents("email/account/frozen", event);
+            case ACCOUNT_CLOSED -> processTemplateForAccountEvents("email/account/closed", event);
         };
     }
 
     public String buildTxnEmailBody(TransactionCompletedEvent event) {
         TransactionEmailRequest req = mapToRequest(event);
         return switch (event.getType()) {
-            case "TRANSFER_SENT", "WITHDRAW" -> processTemplateForTxn("email/debit",req);
-            case "TRANSFER_RECEIVED", "DEPOSIT" -> processTemplateForTxn("email/credit",req);
+            case "TRANSFER_SENT", "WITHDRAW" -> processTemplateForTxn("email/transaction/debit", req);
+            case "TRANSFER_RECEIVED", "DEPOSIT" -> processTemplateForTxn("email/transaction/credit", req);
             default -> "";
         };
     }
@@ -84,68 +110,36 @@ public class EmailTemplateService {
     public String buildVerificationEmail(String verificationLink) {
         Context context = new Context();
         context.setVariable("verificationLink", verificationLink);
-        return templateEngine.process("email/verify", context);
+        return templateEngine.process("email/auth/verify", context);
     }
 
-    public String buildLoginAlertEmail(UserLoginEvent loginEvent, String secureLink) {
+    public String buildLoginAlertEmail(UserLoginEvent loginEvent) {
         Context context = new Context();
         context.setVariable("name", formatUserName(loginEvent.getUserName()));
         context.setVariable("ip", loginEvent.getIpAddress());
         context.setVariable("device", loginEvent.getUserAgent());
         context.setVariable("time", formatDate(loginEvent.getOccurredAt()));
-        context.setVariable("secureLink", secureLink);
-        return templateEngine.process("email/login-alert", context);
+        return templateEngine.process("email/auth/login-alert", context);
+    }
+
+    public String buildKycAlertEmail(KycEvent event) {
+        return switch (event.getEventType()) {
+            case SUBMITTED -> processTemplateForKyc(event, "email/kyc/submitted-user");
+            case APPROVED -> processTemplateForKyc(event, "email/kyc/approved");
+            case REJECTED -> processTemplateForKyc(event, "email/kyc/rejected");
+        };
+    }
+
+    public String buildKycAlertEmailForAdmin(KycEvent event) {
+        return processTemplateForKyc(event, "email/kyc/submitted-admin");
     }
 
     public String buildFraudDetectedEmailBody(FraudDetectedEvent event) {
         return switch (event.getDecision()) {
-            case FREEZE_ACCOUNT -> String.format("""
-                            Dear Customer,
-                            
-                            Your account (%s) has been temporarily frozen due to suspicious activity.
-                            
-                            Reason: %s
-                            
-                            Please contact support immediately to restore access.
-                            
-                            - Bank of Ansh
-                            """,
-                    AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()),
-                    event.getReason()
-            );
-
-            case BLOCK -> String.format("""
-                            Dear Customer,
-                            
-                            A transaction of %s was blocked for your account (%s).
-                            
-                            Reason: %s
-                            
-                            If this wasn't you, please contact support.
-                            
-                            - Bank of Ansh
-                            """,
-                    CurrencyUtil.format(event.getAmount()),
-                    AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()),
-                    event.getReason()
-            );
-
-            case SUSPICIOUS -> String.format("""
-                            Dear Customer,
-                            
-                            We detected unusual activity on your account (%s).
-                            
-                            Transaction Amount: %s
-                            
-                            If this was not you, please take action immediately.
-                            
-                            - Bank of Ansh
-                            """,
-                    AccountMaskingUtil.maskAccountNumber(event.getAccountNumber()),
-                    CurrencyUtil.format(event.getAmount())
-            );
-
-            default -> "";
+            case FREEZE_ACCOUNT -> processTemplateForFrauds(event, "email/fraud/frozen");
+            case BLOCK -> processTemplateForFrauds(event, "email/fraud/blocked");
+            case SUSPICIOUS -> processTemplateForFrauds(event, "email/fraud/suspicious");
+            case SAFE -> processTemplateForFrauds(event, "email/fraud/safe");
         };
     }
 

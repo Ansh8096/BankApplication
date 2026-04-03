@@ -4,10 +4,12 @@ import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;
-import net.engineerAnsh.BankApplication.Enum.AccountStatus;
+import net.engineerAnsh.BankApplication.Enum.account.AccountStatus;
+import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.RoleRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
+import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +29,11 @@ public class UserService {
     private final RoleRepository roleRepository;
     private static final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    private void kycCheck(KycStatus status) {
+        if (status != KycStatus.APPROVED) {
+            throw new KycNotVerifiedException("KYC verification required");
+        }
+    }
 
     public String getUserEmail() {
         return SecurityContextHolder
@@ -44,7 +51,6 @@ public class UserService {
         return roleRepository.findByName(roleName)
                 .orElseThrow(() -> new RuntimeException("This role doesn't exists"));
     }
-
 
     @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
     public List<User> getAllUsers() {
@@ -101,7 +107,7 @@ public class UserService {
 
     public List<Account> getAllAccountsOfUser() {
         String email = getUserEmail();
-        return accountRepository.findByUserEmail(email); // it returns : List<Account>
+        return accountRepository.findByUserEmailAndAccountStatusNot(email,AccountStatus.CLOSED); // it returns all the active accounts of user...
     }
 
     @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...
@@ -109,6 +115,7 @@ public class UserService {
     public void assignRolesToTheUser(String userEmail, String roleName) {
         User user = findUser(userEmail);
         Role role = findRoleByName(roleName); // this will return Role if present, else Throw an exception...
+        kycCheck(user.getKycStatus()); // kyc check...
         user.getRoles().add(role);
         userRepository.save(user);
     }

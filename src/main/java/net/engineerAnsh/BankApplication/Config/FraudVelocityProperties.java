@@ -2,7 +2,7 @@ package net.engineerAnsh.BankApplication.Config;
 
 import lombok.Getter;
 import lombok.Setter;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 import java.util.Map;

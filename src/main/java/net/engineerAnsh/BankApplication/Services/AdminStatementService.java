@@ -4,7 +4,7 @@ import net.engineerAnsh.BankApplication.Dto.StatementEmailContent.StatementEmail
 import net.engineerAnsh.BankApplication.Dto.Statements.AccountStatementDto;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Entity.Account;
-import net.engineerAnsh.BankApplication.Enum.AccountStatus;
+import net.engineerAnsh.BankApplication.Enum.account.AccountStatus;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;

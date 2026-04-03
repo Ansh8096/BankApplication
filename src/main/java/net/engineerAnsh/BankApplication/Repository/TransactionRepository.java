@@ -1,7 +1,7 @@
 package net.engineerAnsh.BankApplication.Repository;
 
 import net.engineerAnsh.BankApplication.Entity.Transaction;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Enum;
+package net.engineerAnsh.BankApplication.Enum.account;
 
 public enum AccountEventType {
     ACCOUNT_CREATED,

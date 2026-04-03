@@ -29,7 +29,7 @@ public class SignupRequest {
     private Integer age;
 
     @NotBlank(message = "Phone cannot be empty")
-    @Length(min = 13, max = 13, message = "Phone no is invalid")
+    @Length(min = 10, max = 13, message = "Phone no is invalid")
     private String phone;
 
     @NotBlank(message = "Password is required")

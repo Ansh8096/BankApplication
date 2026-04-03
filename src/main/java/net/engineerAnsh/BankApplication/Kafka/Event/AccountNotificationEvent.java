@@ -3,8 +3,8 @@ package net.engineerAnsh.BankApplication.Kafka.Event;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.engineerAnsh.BankApplication.Enum.AccountEventType;
-import net.engineerAnsh.BankApplication.Enum.AccountType;
+import net.engineerAnsh.BankApplication.Enum.account.AccountEventType;
+import net.engineerAnsh.BankApplication.Enum.account.AccountType;
 import java.time.LocalDateTime;
 
 @Data

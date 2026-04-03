@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;background:#f4f6f8;font-family:Arial,sans-serif;">
+
+<table width="100%" cellpadding="20">
+    <tr><td align="center">
+
+        <table width="600" style="background:#ffffff;padding:30px;border-radius:12px">
+
+            <!-- Header -->
+            <tr>
+                <td style="font-size:18px;font-weight:bold;color:#2c3e50;">
+                    🏦 Bank of Ansh
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <hr style="border:none;border-top:1px solid #eee;margin:15px 0;">
+                </td>
+            </tr>
+
+            <!-- Title -->
+            <tr>
+                <td align="center">
+                    <h2 style="margin:0;color:#c0392b;">🧊 Account Frozen</h2>
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <hr style="border:none;border-top:1px solid #eee;margin:20px 0;">
+                </td>
+            </tr>
+
+            <!-- Greeting -->
+            <tr>
+                <td style="color:#555;font-size:15px;line-height:1.6;">
+                    Hello <span th:text="${name}">User</span>,
+                    <br><br>
+                    Your account has been temporarily frozen due to suspicious activity detected on your account.
+                </td>
+            </tr>
+
+            <!-- Details Box -->
+            <tr>
+                <td>
+                    <table width="100%" cellpadding="10"
+                           style="background:#fdecea;
+       border:1px solid #f5c6cb;
+       border-radius:8px;
+       font-size:14px;
+       margin-top:15px;
+       box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+
+                        <tr>
+                            <td><b>Account:</b></td>
+                            <td th:text="${accountNumber}">XXXX1234</td>
+                        </tr>
+
+                        <tr>
+                            <td><b>Reason:</b></td>
+                            <td style="line-height:1.5;" th:text="${reason}">
+                                Suspicious activity detected
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td><b>Time:</b></td>
+                            <td th:text="${time}">date and time</td>
+                        </tr>
+
+                        <tr>
+                            <td><b>Status:</b></td>
+                            <td>
+<span style="color:#c0392b;
+             font-weight:bold;
+             background:#fdecea;
+             border:1px solid #f5c6cb;
+             padding:4px 10px;
+             border-radius:4px;
+             display:inline-block;">
+Frozen
+</span>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+
+            <!-- Message -->
+            <tr>
+                <td style="padding-top:20px;color:#555;line-height:1.6;">
+                    Please contact our support team immediately to restore access to your account.
+                </td>
+            </tr>
+
+            <!-- Support -->
+            <tr>
+                <td style="padding-top:22px;text-align:center;font-size:13px;color:#777;">
+                    Need help?
+                    <a href="mailto:anshv8096@gmail.com?subject=Urgent Fraud Issue"
+                       style="color:#3498db;text-decoration:none;">
+                        support@bankofansh.com
+                    </a>
+                </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+                <td style="text-align:center;font-size:12px;color:#aaa;padding-top:15px;">
+                    © 2026 Bank of Ansh. All rights reserved.
+                </td>
+            </tr>
+
+        </table>
+
+    </td></tr>
+</table>
+
+</body>
+</html>

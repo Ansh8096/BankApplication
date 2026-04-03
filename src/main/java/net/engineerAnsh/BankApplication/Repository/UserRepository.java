@@ -2,6 +2,7 @@ package net.engineerAnsh.BankApplication.Repository;
 
 import jakarta.persistence.LockModeType;
 import net.engineerAnsh.BankApplication.Entity.User;
+import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -11,7 +12,7 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User,Long> {
 
-    List<User> findByRoles_Name(String roleName);
+    List<User> findByRoles_NameAndKycStatus(String roleName, KycStatus kycStatus);
 
     boolean existsByEmail(String email);
 

@@ -2,7 +2,7 @@ package net.engineerAnsh.BankApplication.Repository;
 
 import jakarta.persistence.LockModeType;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
-import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;

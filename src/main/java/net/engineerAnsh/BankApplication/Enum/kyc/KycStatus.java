@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Enum;
+package net.engineerAnsh.BankApplication.Enum.kyc;
 
 public enum KycStatus {
     NOT_SUBMITTED,

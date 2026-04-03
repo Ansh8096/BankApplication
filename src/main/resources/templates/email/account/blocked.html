@@ -26,13 +26,13 @@
 
                         <p style="margin:0 0 25px; font-size:16px;">
                             Your account has been
-                            <span style="color:#555; font-weight:bold;">permanently closed</span>
-                            as per our records.
+                            <span style="color:#e74c3c; font-weight:bold;">temporarily blocked</span>
+                            as a precautionary security measure.
                         </p>
 
                         <!-- Info Box -->
                         <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                               style="background:#f0f0f0; border-radius:8px; margin-bottom:20px;">
+                               style="background:#fdecea; border-radius:8px; margin-bottom:20px;">
                             <tr>
                                 <td style="padding:20px;">
                                     <p style="margin:0 0 10px;">
@@ -40,7 +40,7 @@
                                         <span th:text="${accountNumber}"></span>
                                     </p>
                                     <p style="margin:0;">
-                                        <b>Closed On:</b>
+                                        <b>Blocked On:</b>
                                         <span th:text="${formattedDate}"></span>
                                     </p>
                                 </td>
@@ -48,24 +48,20 @@
                         </table>
 
                         <p style="margin:0 0 15px;">
-                            This account is no longer active and cannot be used for transactions.
-                        </p>
-
-                        <p style="margin:0 0 15px;">
-                            We sincerely appreciate the trust you placed in us during your banking relationship.
+                            This action may have been triggered due to unusual activity or a security review.
                         </p>
 
                         <p style="margin:0 0 15px; color:#555;">
-                            Should you wish to open a new account in the future, we would be happy to assist you.
+                            If this action was initiated by you, no further steps are required.
                         </p>
 
                         <!-- Alert -->
-                        <p style="margin:10px 0 20px; color:#c0392b; font-weight:bold;">
-                            ⚠️ If you did not initiate this request, please contact our support team immediately.
+                        <p style="margin:0 0 20px; color:#e74c3c; font-weight:bold; font-size:15px;">
+                            ⚠️ Immediate action required: Please contact our support team to restore access to your account.
                         </p>
 
                         <!-- Divider -->
-                        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:20px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                             <tr>
                                 <td style="border-top:1px solid #e0e0e0;"></td>
                             </tr>
@@ -73,16 +69,16 @@
 
                         <!-- Footer -->
                         <p style="margin:15px 0 5px;">Regards,</p>
-                        <p style="margin:0; font-weight:bold;">Bank Support Team</p>
+                        <p style="margin:0; font-weight:bold;">Bank Security Team</p>
 
                         <p style="margin:10px 0;">
-                            📧 <a href="mailto:anshv8096@gmail.com" style="color:#3498db;">
+                            📧 <a href="mailto:anshv8096@gmail.com?subject=Urgent Account Issue" style="color:#3498db;">
                             support@bankofansh.com
                         </a>
                         </p>
 
                         <p style="color:#999; font-size:12px;">
-                            This is an automated message. Please do not reply to this email.
+                            This is an automated security alert. Please do not reply to this email.
                         </p>
 
                     </td>

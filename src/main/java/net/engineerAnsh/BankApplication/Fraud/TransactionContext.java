@@ -2,7 +2,7 @@ package net.engineerAnsh.BankApplication.Fraud;
 
 import lombok.Builder;
 import lombok.Getter;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 public class TransactionContext {
 
     private Long userId;
+
+    private String name;
 
     private String email;
 

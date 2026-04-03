@@ -28,17 +28,17 @@ public class SecurityConfig {
                         (SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/kyc/status/view/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN") // hasRole("ADMIN") → looks for ROLE_ADMIN or hasAuthority("ROLE_ADMIN") → looks for ROLE_ADMIN
-                        .requestMatchers("/user/**", "/account/**").authenticated()
-                        .requestMatchers("/api/v1/kyc/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/kyc/**").hasRole("USER")
+                        .requestMatchers("/user/**", "/account/**","/api/v1/kyc/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .userDetailsService(customUserDetailsService) // giving the details of our user entity (or userDto which we created)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) // This tells Spring Security: “I want to insert my own filter into the security filter chain”.Before Spring Security’s default login filter...
                 .build();
     }
-//    This tells Spring Security: “I want to insert my own filter into the security filter chain.”
+
+    // This tells Spring Security: “I want to insert my own filter into the security filter chain.”
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration auth) throws Exception {
         return auth.getAuthenticationManager();

@@ -14,7 +14,11 @@ import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
 import net.engineerAnsh.BankApplication.Entity.User;
-import net.engineerAnsh.BankApplication.Enum.*;
+import net.engineerAnsh.BankApplication.Enum.account.AccountStatus;
+import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxEventType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionStatus;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import net.engineerAnsh.BankApplication.Kafka.Builder.FraudEventBuilder;
 import net.engineerAnsh.BankApplication.Fraud.FraudDecision;
 import net.engineerAnsh.BankApplication.Fraud.FraudDetectionService;
@@ -23,7 +27,7 @@ import net.engineerAnsh.BankApplication.Fraud.TransactionContext;
 import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
-import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.Utils.MaskingUtil;
 import net.engineerAnsh.BankApplication.exception.FraudDetectedException;
 import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -178,7 +182,7 @@ public class TransactionService {
         return new AccountStatementDto(
                 "BANK OF ANSH",
                 account.getUser().getName(),
-                AccountMaskingUtil.maskAccountNumber(accountNumber),
+                MaskingUtil.maskAccountNumber(accountNumber),
                 account.getAccountType().toString(),
                 account.getIfscCode(),
                 from,
@@ -222,6 +226,7 @@ public class TransactionService {
     private TransactionContext createTransactionContext(User user, Account sourceAccount, BigDecimal requestAmount, TransactionType transactionType) {
         return TransactionContext.builder()
                 .userId(user.getUserId())
+                .name(user.getName())
                 .email(user.getEmail())
                 .accountNumber(sourceAccount.getAccountNumber())
                 .amount(requestAmount)
@@ -230,7 +235,7 @@ public class TransactionService {
                 .build();
     }
 
-    private Transaction createBlockTxn(
+    private String createBlockTxn(
             Account fromAccount,
             Account toAccount,
             TransactionContext context,
@@ -251,12 +256,12 @@ public class TransactionService {
         // (PB: Two identical requests arrive at the same time, Both pass the “not found” check, Then both try to insert)
         // Solution: Catch the DB exception and return the existing transaction...
         try {
-            return transactionRepository.save(txn);
+            return transactionRepository.save(txn).getTransactionReference();
         } catch (DataIntegrityViolationException ex) {
             // returning the existing transaction, we can map it to transferResponse afterward...
             return transactionRepository
                     .findByClientTransactionId(clientTxnId)
-                    .orElseThrow(() -> ex);
+                    .orElseThrow(() -> ex).getTransactionReference();
         }
     }
 
@@ -268,8 +273,21 @@ public class TransactionService {
             String clientTxnId
     ) throws JsonProcessingException {
 
+        String txnReference = null;
+        // Handle BLOCK separately (needs txn creation)...
+        if (result.getDecision() == FraudDecision.BLOCK) {
+            txnReference = createBlockTxn(
+                    sourceAccount,
+                    toAccount,
+                    context,
+                    clientTxnId,
+                    result.getReason()
+            );
+            log.error("🚫 BLOCKED FRAUD: {}", result.getReason());
+        }
+
         if (result.getDecision() != FraudDecision.SAFE) {
-            FraudDetectedEvent fraudEvent = fraudEventBuilder.buildFraudEvent(context, result); // build fraud event...
+            FraudDetectedEvent fraudEvent = fraudEventBuilder.buildFraudEvent(context, result, txnReference); // build fraud event...
             // Build and Save outBox event...
             OutboxEvent outboxFraudEvent = outboxEventService.buildOutboxEvent(fraudEvent, OutboxEventType.FRAUD_DETECTED);
             outboxEventService.publishOutBoxEvent(outboxFraudEvent);
@@ -284,14 +302,6 @@ public class TransactionService {
                 break;
 
             case BLOCK:
-                createBlockTxn(
-                        sourceAccount,
-                        toAccount,
-                        context,
-                        clientTxnId,
-                        result.getReason()
-                );
-                log.error("🚫 BLOCKED FRAUD: {}", result.getReason());
                 throw new FraudDetectedException(result.getReason());
 
             case SAFE:

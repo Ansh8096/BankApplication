@@ -30,4 +30,4 @@ public class LargeTransactionRule implements FraudRule {
 }
 
 // Example rule:-
-// Transaction > ₹100,000 → suspicious
+// Transaction > LARGE_TX_THRESHOLD → suspicious

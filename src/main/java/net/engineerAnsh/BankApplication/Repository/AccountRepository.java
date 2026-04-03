@@ -3,8 +3,8 @@ package net.engineerAnsh.BankApplication.Repository;
 import jakarta.persistence.LockModeType;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.User;
-import net.engineerAnsh.BankApplication.Enum.AccountStatus;
-import net.engineerAnsh.BankApplication.Enum.AccountType;
+import net.engineerAnsh.BankApplication.Enum.account.AccountStatus;
+import net.engineerAnsh.BankApplication.Enum.account.AccountType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -15,7 +15,7 @@ import java.util.Optional;
 
 public interface AccountRepository extends JpaRepository<Account, Long> {
 
-    List<Account> findByUserEmail(String email);
+    List<Account> findByUserEmailAndAccountStatusNot(String email, AccountStatus status);
 
     @Query("""
              SELECT a FROM Account a

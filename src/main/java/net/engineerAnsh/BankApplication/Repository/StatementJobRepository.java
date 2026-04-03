@@ -1,7 +1,7 @@
 package net.engineerAnsh.BankApplication.Repository;
 
 import net.engineerAnsh.BankApplication.Entity.StatementJob;
-import net.engineerAnsh.BankApplication.Enum.StatementJobStatus;
+import net.engineerAnsh.BankApplication.Enum.statement.StatementJobStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;

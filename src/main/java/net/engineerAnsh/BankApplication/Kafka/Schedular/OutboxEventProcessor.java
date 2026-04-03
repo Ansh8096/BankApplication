@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
-import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxStatus;
 import net.engineerAnsh.BankApplication.Kafka.Event.*;
 import net.engineerAnsh.BankApplication.Kafka.Producer.*;
 import net.engineerAnsh.BankApplication.Repository.OutboxEventRepository;

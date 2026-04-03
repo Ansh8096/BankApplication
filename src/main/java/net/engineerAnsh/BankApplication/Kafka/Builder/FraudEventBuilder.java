@@ -11,13 +11,16 @@ public class FraudEventBuilder {
 
     public FraudDetectedEvent buildFraudEvent(
             TransactionContext transactionContext,
-            FraudEvaluationResult result) {
+            FraudEvaluationResult result,
+            String txnReference) {
         return FraudDetectedEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .userId(transactionContext.getUserId())
+                .name(transactionContext.getName())
                 .email(transactionContext.getEmail())
                 .accountNumber(transactionContext.getAccountNumber())
                 .transactionType(transactionContext.getTransactionType())
+                .transactionReference(txnReference)
                 .amount(transactionContext.getAmount())
                 .decision(result.getDecision())
                 .reason(result.getReason())

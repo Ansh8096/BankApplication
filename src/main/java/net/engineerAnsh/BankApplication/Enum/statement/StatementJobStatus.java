@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.Enum;
+package net.engineerAnsh.BankApplication.Enum.statement;
 
 public enum StatementJobStatus {
     SUCCESS,

@@ -2,8 +2,8 @@ package net.engineerAnsh.BankApplication.Entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import net.engineerAnsh.BankApplication.Enum.OutboxEventType;
-import net.engineerAnsh.BankApplication.Enum.OutboxStatus;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxEventType;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxStatus;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;

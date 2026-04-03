@@ -11,12 +11,15 @@ import net.engineerAnsh.BankApplication.Dto.transaction.WithdrawRequest;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.Transaction;
-import net.engineerAnsh.BankApplication.Enum.*;
+import net.engineerAnsh.BankApplication.Enum.account.AccountStatus;
+import net.engineerAnsh.BankApplication.Enum.outbox.OutboxEventType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionStatus;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import net.engineerAnsh.BankApplication.Kafka.Builder.TransactionEventBuilder;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.TransactionRepository;
-import net.engineerAnsh.BankApplication.Utils.AccountMaskingUtil;
+import net.engineerAnsh.BankApplication.Utils.MaskingUtil;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,11 +47,11 @@ public class TransactionExecutionService {
         return new TransactionResponse(
                 txn.getTransactionReference(),
                 txn.getFromAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(
+                        ? MaskingUtil.maskAccountNumber(
                         txn.getFromAccount().getAccountNumber())
                         : null,
                 txn.getToAccount() != null
-                        ? AccountMaskingUtil.maskAccountNumber(
+                        ? MaskingUtil.maskAccountNumber(
                         txn.getToAccount().getAccountNumber())
                         : null,
                 txn.getAmount(),

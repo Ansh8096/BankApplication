@@ -3,7 +3,7 @@ package net.engineerAnsh.BankApplication.Services;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.LedgerEntry;
-import net.engineerAnsh.BankApplication.Enum.LedgerEntryType;
+import net.engineerAnsh.BankApplication.Enum.ledgerEntry.LedgerEntryType;
 import net.engineerAnsh.BankApplication.Repository.LedgerEntryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

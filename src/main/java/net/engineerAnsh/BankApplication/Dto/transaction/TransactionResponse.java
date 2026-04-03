@@ -1,8 +1,8 @@
 package net.engineerAnsh.BankApplication.Dto.transaction;
 
 import lombok.*;
-import net.engineerAnsh.BankApplication.Enum.TransactionStatus;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionStatus;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 

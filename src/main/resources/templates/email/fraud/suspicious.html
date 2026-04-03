@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="margin:0;background:#f4f6f8;font-family:Arial,sans-serif;">
+
+<table width="100%" cellpadding="20">
+    <tr><td align="center">
+
+        <table width="600" style="background:#ffffff;padding:30px;border-radius:12px">
+
+            <!-- Header -->
+            <tr>
+                <td style="font-size:18px;font-weight:bold;color:#2c3e50;">
+                    🏦 Bank of Ansh
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <hr style="border:none;border-top:1px solid #eee;margin:15px 0;">
+                </td>
+            </tr>
+
+            <!-- Title -->
+            <tr>
+                <td style="text-align:center;">
+                    <h2 style="margin:0;color:#f39c12;">
+                        ⚠️ Suspicious Activity Detected
+                    </h2>
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    <hr style="border:none;border-top:1px solid #eee;margin:20px 0;">
+                </td>
+            </tr>
+
+            <!-- Message -->
+            <tr>
+                <td style="color:#555;font-size:15px;line-height:1.6;">
+                    We detected a potentially suspicious transaction on your account.
+                </td>
+            </tr>
+
+            <!-- Details Box -->
+            <tr>
+                <td>
+                    <table width="100%" cellpadding="10"
+                           style="background:#fff8e1;
+              border:1px solid #ffeeba;
+              border-radius:8px;
+              font-size:14px;
+              margin-top:15px;
+              color:#333;">
+
+                        <tr>
+                            <td><b>Account:</b></td>
+                            <td th:text="${accountNumber}">XXXX1234</td>
+                        </tr>
+
+                        <tr>
+                            <td><b>Amount:</b></td>
+                            <td th:text="${amount}">100000</td>
+                        </tr>
+
+                        <tr>
+                            <td><b>Type:</b></td>
+                            <td th:text="${transactionType}">DEPOSIT</td>
+                        </tr>
+
+                        <tr>
+                            <td><b>Time:</b></td>
+                            <td th:text="${time}">02 Apr 2026, 12:37 AM</td>
+                        </tr>
+
+                        <tr>
+                            <td><b>Status:</b></td>
+                            <td>
+<span style="color:#f39c12;
+             font-weight:bold;
+             background:#fff3cd;
+             border:1px solid #ffeeba;
+             padding:4px 8px;
+             border-radius:4px;
+             display:inline-block;">
+Suspicious
+</span>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+
+            <!-- Info -->
+            <tr>
+                <td style="padding-top:20px;color:#555;line-height:1.6;">
+                    If this was you, no action is needed. Otherwise, please secure your account immediately.
+                </td>
+            </tr>
+
+            <!-- Support -->
+            <tr>
+                <td style="padding-top:20px;text-align:center;font-size:13px;color:#777;">
+                    Need help?
+                    <a href="mailto:anshv8096@gmail.com?subject=Urgent Fraud Issue"
+                       style="color:#3498db;text-decoration:none;">
+                        support@bankofansh.com
+                    </a>
+                </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+                <td style="text-align:center;font-size:12px;color:#aaa;padding-top:15px;">
+                    © 2026 Bank of Ansh. All rights reserved.
+                </td>
+            </tr>
+
+        </table>
+
+    </td></tr>
+</table>
+
+</body>
+</html>

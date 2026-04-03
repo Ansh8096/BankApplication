@@ -3,7 +3,10 @@ package net.engineerAnsh.BankApplication.Kafka.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
+import net.engineerAnsh.BankApplication.Email.EmailTemplateService;
 import net.engineerAnsh.BankApplication.Entity.User;
+import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
+import net.engineerAnsh.BankApplication.Kafka.Enums.KycEventType;
 import net.engineerAnsh.BankApplication.Kafka.Event.KycEvent;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -17,32 +20,30 @@ public class KycEventConsumer {
 
     private final EmailServiceImpl emailService;
     private final UserRepository userRepository;
+    private final EmailTemplateService emailTemplateService;
 
     private void notifyAdmins(KycEvent event) {
+        String subject = "New KYC Submission - Admin Alert";
+        String body = emailTemplateService.buildKycAlertEmailForAdmin(event);
 
-        String subject = "New KYC Submission";
-        String message = """
-                A new KYC verification request has been submitted.
+        List<User> admins = userRepository.findByRoles_NameAndKycStatus("ROLE_ADMIN", KycStatus.APPROVED);
+        log.info("Total admins available in system are: {}", admins.size());
 
-                User ID: %s
-                Email: %s
-                Document Type: %s
-
-                Please review it in the admin dashboard.
-                """.formatted(
-                event.getUserId(),
-                event.getEmail(),
-                event.getDocumentType()
-        );
-
-        List<User> admins = userRepository.findByRoles_Name("ROLE_ADMIN");
-        log.info("Total admins available in system are: {}",admins.size());
-
-        for(User admin : admins) {
-            emailService.sendSimpleEmail(admin.getEmail(),
+        for (User admin : admins) {
+            emailService.sendHtmlEmail(admin.getEmail(),
                     subject,
-                    message);
+                    body
+            );
+            log.info("Admin: {} has successfully received a new kyc alert email", admin.getEmail());
         }
+    }
+
+    private String buildSubject(KycEvent event) {
+        return switch (event.getEventType()) {
+            case SUBMITTED -> "KYC Submitted";
+            case APPROVED -> "KYC Approved";
+            case REJECTED -> "KYC Rejected";
+        };
     }
 
     @KafkaListener(topics = "kyc-events",
@@ -51,37 +52,12 @@ public class KycEventConsumer {
     public void consumeKycEvent(KycEvent event) {
 
         log.info("Received KYC event: {}", event);
+        String subject = buildSubject(event);
+        String body = emailTemplateService.buildKycAlertEmail(event);
+        // Notifying the admins, whenever a new kyc is available to review...
+        if (event.getEventType() == KycEventType.SUBMITTED) notifyAdmins(event);
 
-        switch (event.getEventType()) {
-
-            case SUBMITTED:
-                emailService.sendSimpleEmail(
-                        event.getEmail(),
-                        "KYC Submitted",
-                        "Your KYC documents have been submitted and are under review."
-                );
-
-                // Notify the admin, whenever a new Kyc is available to review...
-                notifyAdmins(event);
-                break;
-
-            case APPROVED:
-
-                emailService.sendSimpleEmail(
-                        event.getEmail(),
-                        "KYC Approved",
-                        "Your KYC verification has been approved. You can now perform transactions."
-                );
-                break;
-
-            case REJECTED:
-                emailService.sendSimpleEmail(
-                        event.getEmail(),
-                        "KYC Rejected",
-                        "Your KYC verification was rejected. Reason: " + event.getReason()
-                );
-                break;
-        }
+        emailService.sendHtmlEmail(event.getEmail(), subject, body);
     }
 
 }

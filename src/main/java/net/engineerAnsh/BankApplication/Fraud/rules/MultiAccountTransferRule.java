@@ -1,7 +1,7 @@
 package net.engineerAnsh.BankApplication.Fraud.rules;
 
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import net.engineerAnsh.BankApplication.Fraud.FraudEvaluationResult;
 import net.engineerAnsh.BankApplication.Fraud.FraudRule;
 import net.engineerAnsh.BankApplication.Fraud.TransactionContext;

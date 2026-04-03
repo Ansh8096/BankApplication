@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.engineerAnsh.BankApplication.Enum.TransactionType;
+import net.engineerAnsh.BankApplication.Enum.transaction.TransactionType;
 import net.engineerAnsh.BankApplication.Fraud.FraudDecision;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,11 +17,14 @@ public class FraudDetectedEvent {
 
     private String eventId;
     private Long userId;
+    private String name;
     private String email;
     private String accountNumber;
     private TransactionType transactionType;
+    private String transactionReference;
     private BigDecimal amount;
     private FraudDecision decision; // BLOCK / FREEZE / SUSPICIOUS
     private String reason;
     private LocalDateTime timestamp;
+
 }

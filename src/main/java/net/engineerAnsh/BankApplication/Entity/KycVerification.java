@@ -3,9 +3,10 @@ package net.engineerAnsh.BankApplication.Entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-import net.engineerAnsh.BankApplication.Enum.KycStatus;
+import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "kyc_verifications",
@@ -47,6 +48,9 @@ public class KycVerification {
     @Column(nullable = false)
     private KycStatus status = KycStatus.SUBMITTED;
 
+    @Column(unique = true, nullable = false, name = "reference_id")
+    private String referenceId;
+
     // When user submitted KYC...
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -63,5 +67,12 @@ public class KycVerification {
     // Reason if rejected...
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
+
+    @PrePersist
+    public void prePersist(){
+        if(referenceId == null || referenceId.isEmpty()){
+            referenceId = "KYC-" + UUID.randomUUID().toString().substring(0, 8);
+        }
+    }
 
 }

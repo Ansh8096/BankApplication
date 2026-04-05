@@ -41,9 +41,9 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
         return ResponseEntity.ok().body(allUsers);
     }
 
-    @PostMapping("/assign-role/{userEmail}")
+    @PostMapping("/assign-role")
     public ResponseEntity<?> assignNewRoleTohTheUser(
-            @PathVariable String userEmail,
+            @RequestParam String userEmail,
             @RequestBody AssignRoleRequest roleName)
     {
         userService.assignRolesToTheUser(userEmail, roleName.getRoleName());
@@ -89,22 +89,22 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
         );
     }
 
-    @PatchMapping("/account/activate/{accountNumber}")
-    public ResponseEntity<?> activateAccountByAccountNo(@PathVariable String accountNumber)
+    @PatchMapping("/account/activate")
+    public ResponseEntity<?> activateAccountByAccountNo(@RequestParam String accountNumber)
             throws AccessDeniedException, JsonProcessingException {
         accountService.activateTheAccount(accountNumber);
         return ResponseEntity.ok().body("Account is successfully activated...");
     }
 
-    @PatchMapping("/account/block/{accountNumber}")
-    public ResponseEntity<?> blockAccountByAccountNo(@PathVariable String accountNumber)
+    @PatchMapping("/account/block")
+    public ResponseEntity<?> blockAccountByAccountNo(@RequestParam String accountNumber)
             throws AccessDeniedException, JsonProcessingException {
         accountService.blockTheAccountByAccountNumber(accountNumber);
         return ResponseEntity.ok().body("Account is successfully blocked...");
     }
 
-    @PutMapping("/account/close/{accountNumber}")
-    public ResponseEntity<?> closeAccountByAccountNo(@PathVariable String accountNumber)
+    @PutMapping("/account/close")
+    public ResponseEntity<?> closeAccountByAccountNo(@RequestParam String accountNumber)
             throws AccessDeniedException, JsonProcessingException {
         accountService.closeTheAccount(accountNumber);
         return ResponseEntity.ok().body("Account is successfully closed...");
@@ -115,9 +115,9 @@ public class AdminController { // Only users that have role as: "ROLE_ADMIN, wil
         return kycService.getPendingKyc();
     }
 
-    @PostMapping("api/v1/kyc/{kycId}/review")
+    @PostMapping("api/v1/kyc/review")
     public ResponseEntity<String> reviewKyc(
-            @PathVariable String kycId,
+            @RequestParam String kycId,
             @AuthenticationPrincipal CustomUserDetails admin,
             @Valid @RequestBody KycReviewRequest request) throws JsonProcessingException {
 

@@ -17,7 +17,7 @@ public class FailedKafkaEventCleanupJob {
 
     private final FailedKafkaEventRepository repository;
 
-    @Scheduled(cron = "0 0 * * * *") // every hour
+    @Scheduled(cron = "${app.kafka.cleanup.cron}") // every hour
     @Transactional
     public void cleanupTerminalEvents() {
 

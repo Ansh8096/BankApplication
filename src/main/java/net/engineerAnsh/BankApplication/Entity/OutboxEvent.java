@@ -53,5 +53,9 @@ public class OutboxEvent {
     private LocalDateTime createdAt;
 
     // Time event was successfully published...
+    @Column
     private LocalDateTime processedAt;
+
+    @Column
+    private LocalDateTime lastRetriedAt;
 }

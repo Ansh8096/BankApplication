@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,22 +21,25 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> 
     @Query("""
             SELECT e
             FROM OutboxEvent e
-            WHERE e.status = :status
+            WHERE e.status IN :statuses
             ORDER BY e.createdAt ASC
             """)
-    List<OutboxEvent> findPendingEventsForUpdate(OutboxStatus status, Pageable pageable);
+    List<OutboxEvent> findPendingEventsForUpdate(
+            @Param("statuses") List<OutboxStatus> statuses,
+            Pageable pageable
+    );
 
     // Without @Modifying, Spring would treat it as a select query...
-    //
     @Modifying(clearAutomatically = true)
     @Query("""
             DELETE FROM OutboxEvent e
-            WHERE e.status = :status
+            WHERE e.status IN :statuses
             AND e.processedAt < :cutoff
             """)
-    int deleteProcessedEvents( // Return value: number of rows deleted...
-            @Param("status") OutboxStatus status,
-            @Param("cutoff") LocalDateTime cutoff);
+    int deleteProcessedEvents(
+            @Param("statuses") List<OutboxStatus> statuses,
+            @Param("cutoff") LocalDateTime cutoff
+    );
 
 }
 

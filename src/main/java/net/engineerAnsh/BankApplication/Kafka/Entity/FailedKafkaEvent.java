@@ -5,6 +5,7 @@ import lombok.*;
 import net.engineerAnsh.BankApplication.Kafka.Enums.FailedEventStatus;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 
@@ -24,12 +25,12 @@ public class FailedKafkaEvent {
     @Column(name = "event_id", nullable = false, unique = true)
     private String eventId;
 
-    @Column(name = "transaction_reference", nullable = false)
-    private String transactionReference;
-
     // Stores the Kafka topic where the event came from...
     @Column(nullable = false)
     private String topic;
+
+    @Column(name = "event_type", nullable = false)
+    private String eventType;
 
     // Stores the entire original Kafka message...
     @Lob // @Lob = Large Object (used for Long json)
@@ -51,4 +52,7 @@ public class FailedKafkaEvent {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "last_retried_at")
+    private LocalDateTime lastRetriedAt;
 }

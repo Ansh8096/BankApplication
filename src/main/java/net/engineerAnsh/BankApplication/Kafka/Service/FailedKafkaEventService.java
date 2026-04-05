@@ -1,15 +1,17 @@
 package net.engineerAnsh.BankApplication.Kafka.Service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.engineerAnsh.BankApplication.Kafka.Dto.FailedKafkaEventResponse;
 import net.engineerAnsh.BankApplication.Kafka.Entity.FailedKafkaEvent;
 import net.engineerAnsh.BankApplication.Kafka.Enums.FailedEventStatus;
-import net.engineerAnsh.BankApplication.Kafka.Event.TransactionCompletedEvent;
+import net.engineerAnsh.BankApplication.Kafka.Event.TransactionEvent;
 import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
 import net.engineerAnsh.BankApplication.Kafka.Repository.FailedKafkaEventRepository;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -22,66 +24,117 @@ public class FailedKafkaEventService {
     private final ObjectMapper objectMapper;
     private static final int MAX_RETRY_ATTEMPTS = 3;
 
-    private boolean checkRetryCount(FailedKafkaEvent event){
+    private boolean isMaxRetryExceeded(FailedKafkaEvent event) {
         if (event.getRetryCount() >= MAX_RETRY_ATTEMPTS) {
-            log.warn("Max retry attempts reached for event {}", event.getTransactionReference());
-            return false;
+            log.warn("Max retry attempts reached, marking the {} event as PERMANENTLY_FAILED ", event.getEventType());
+            event.setStatus(FailedEventStatus.PERMANENTLY_FAILED);
+            saveFailedKafkaEvent(event);
+            log.info("event: {} is successfully marked as PERMANENTLY_FAILED", event.getEventType());
+            return true;
         }
-        return true;
+        return false;
     }
 
-    // Retry a single failed event...
-    public void retryFailedEvent(Long id){
-        FailedKafkaEvent failedEvent = failedKafkaEventRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Failed event not found"));
+    private FailedKafkaEventResponse mapToFailedKafkaEventResponse(FailedKafkaEvent event) {
+        return new FailedKafkaEventResponse(
+                event.getEventId(),
+                event.getTopic(),
+                event.getEventType(),
+                event.getStatus(),
+                event.getErrorMessage(),
+                event.getRetryCount()
+        );
+    }
 
-        if(!checkRetryCount(failedEvent)) return;
+    public List<FailedKafkaEventResponse> findPendingFailedKafkaEvents() {
+        return failedKafkaEventRepository.findByStatusNotIn(
+                List.of(FailedEventStatus.RESOLVED, FailedEventStatus.PERMANENTLY_FAILED)
+        ).stream().map(this::mapToFailedKafkaEventResponse).toList();
+    }
+
+    public List<FailedKafkaEvent> findAllFailedEvents() {
+        return failedKafkaEventRepository
+                .findByStatusNotIn(
+                        List.of(FailedEventStatus.RESOLVED, FailedEventStatus.PERMANENTLY_FAILED)
+                );
+    }
+
+    public FailedKafkaEvent findFailedKafkaEventByEventId(String eventId) {
+        return failedKafkaEventRepository
+                .findByEventId(eventId).orElse(null);
+    }
+
+    public void saveFailedKafkaEvent(FailedKafkaEvent event) {
+        failedKafkaEventRepository.save(event);
+    }
+
+    private void retryFailedEventInternally(FailedKafkaEvent failedEvent) throws Exception {
+
+        if (isMaxRetryExceeded(failedEvent)) return;
 
         try {
-            // Convert the payload back to the 'transactionCompletedEvent'...
-            TransactionCompletedEvent event = objectMapper
-                    .readValue(failedEvent.getPayload(), TransactionCompletedEvent.class);
 
+            // Convert the payload back to the 'transactionEvent'...
+            TransactionEvent event = objectMapper.readValue(
+                    failedEvent.getPayload(),
+                    TransactionEvent.class
+            );
 
             // re-publish the event to kafka...
-            transactionEventProducer.publishTransactionCompleted(event);
+            transactionEventProducer.publishTxnEvent(event);
 
             // Update status...
             failedEvent.setStatus(FailedEventStatus.RETRIED); // we retried the failedEvent...
             failedEvent.setRetryCount(failedEvent.getRetryCount() + 1);
-            failedKafkaEventRepository.save(failedEvent);
+            failedEvent.setLastRetriedAt(LocalDateTime.now());
+            saveFailedKafkaEvent(failedEvent);
 
-            log.info("Successfully retried event: {}", failedEvent.getTransactionReference());
+            log.info("Successfully retried event: {}", failedEvent.getEventType());
 
-        } catch (JsonProcessingException e) {
-            log.error("Retry failed for event: {}", failedEvent.getTransactionReference(), e);
-            throw new RuntimeException("Retry Failed...");
+        } catch (Exception e) {
+            log.error("Retry failed for event: {}", failedEvent.getEventType(), e);
+            throw e;
         }
     }
 
+    public void retryFailedEventByEventId(String eventId) throws Exception {
+        FailedKafkaEvent failedKafkaEvent = failedKafkaEventRepository.findByEventId(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("No failed kafka event is found..."));
+        retryFailedEventInternally(failedKafkaEvent);
+    }
+
+    public void retryFailedEventById(Long id) throws Exception {
+        FailedKafkaEvent failedEvent = failedKafkaEventRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Failed event not found"));
+        retryFailedEventInternally(failedEvent);
+    }
+
     // Retry all failed events...
-    public void retryAllFailedEvents() throws JsonProcessingException {
-        List<FailedKafkaEvent> failedKafkaEvents = failedKafkaEventRepository
-                .findByStatusNot(FailedEventStatus.RESOLVED);
+    public void retryAllFailedEvents() {
+        List<FailedKafkaEvent> failedKafkaEvents = findAllFailedEvents();
 
-        for (FailedKafkaEvent failedEvent: failedKafkaEvents){
+        for (FailedKafkaEvent failedEvent : failedKafkaEvents) {
 
-            if(!checkRetryCount(failedEvent)) continue;
+            if (isMaxRetryExceeded(failedEvent)) continue;
 
             try {
-                TransactionCompletedEvent event = objectMapper
-                        .readValue(failedEvent.getPayload(), TransactionCompletedEvent.class);
+
+                // Convert the payload back to the 'transactionEvent'...
+                TransactionEvent event = objectMapper.readValue(
+                        failedEvent.getPayload(),
+                        TransactionEvent.class
+                );
 
                 // re-publish the event to kafka...
-                transactionEventProducer.publishTransactionCompleted(event);
+                transactionEventProducer.publishTxnEvent(event);
 
                 // Update status...
                 failedEvent.setStatus(FailedEventStatus.RETRIED);
                 failedEvent.setRetryCount(failedEvent.getRetryCount() + 1);
+                failedEvent.setLastRetriedAt(LocalDateTime.now());
 
-            } catch (JsonProcessingException e) {
-                log.error("Retry failed for event: {}", failedEvent.getTransactionReference(), e);
-                throw e;
+            } catch (Exception e) {
+                log.error("Retry failed for event: {}", failedEvent.getEventType(), e);
             }
         }
         failedKafkaEventRepository.saveAll(failedKafkaEvents);

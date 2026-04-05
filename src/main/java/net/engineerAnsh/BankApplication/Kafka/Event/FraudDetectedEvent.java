@@ -1,5 +1,6 @@
 package net.engineerAnsh.BankApplication.Kafka.Event;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,11 +10,12 @@ import net.engineerAnsh.BankApplication.Fraud.FraudDecision;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@JsonTypeName("FRAUD_DETECTED")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class FraudDetectedEvent {
+public class FraudDetectedEvent implements TransactionEvent, IdentifiableEvent {
 
     private String eventId;
     private Long userId;
@@ -25,6 +27,6 @@ public class FraudDetectedEvent {
     private BigDecimal amount;
     private FraudDecision decision; // BLOCK / FREEZE / SUSPICIOUS
     private String reason;
-    private LocalDateTime timestamp;
+    private LocalDateTime occurredAt;
 
 }

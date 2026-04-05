@@ -24,7 +24,7 @@ public class FraudEventBuilder {
                 .amount(transactionContext.getAmount())
                 .decision(result.getDecision())
                 .reason(result.getReason())
-                .timestamp(transactionContext.getTimestamp())
+                .occurredAt(transactionContext.getTimestamp())
                 .build();
     }
 

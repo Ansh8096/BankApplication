@@ -3,8 +3,6 @@ package net.engineerAnsh.BankApplication.Kafka.Schedular;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Kafka.Entity.FailedKafkaEvent;
-import net.engineerAnsh.BankApplication.Kafka.Enums.FailedEventStatus;
-import net.engineerAnsh.BankApplication.Kafka.Repository.FailedKafkaEventRepository;
 import net.engineerAnsh.BankApplication.Kafka.Service.FailedKafkaEventService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -15,29 +13,27 @@ import java.util.List;
 @Slf4j
 public class FailedEventRetrySchedular {
 
-    private final FailedKafkaEventRepository failedKafkaEventRepository;
     private final FailedKafkaEventService failedKafkaEventService;
 
     // Runs every 5 minutes
     @Scheduled(fixedRateString = "${app.kafka.retry-interval-ms}")
     public void retryFailedEvents() {
 
-        List<FailedKafkaEvent> failedEvents =
-                failedKafkaEventRepository.findByStatusNot(FailedEventStatus.RESOLVED);
+        List<FailedKafkaEvent> failedEvents = failedKafkaEventService.findAllFailedEvents();
 
         if (failedEvents.isEmpty()) {
-            log.info("No failed events are available");
+            log.info("❌ No failed KAFKA events are available...");
             return;
         }
 
-        log.info("Retry scheduler found {} failed events", failedEvents.size());
+        log.info("Retry scheduler found {} failed events to process.", failedEvents.size());
 
         for (FailedKafkaEvent event : failedEvents) {
             try {
-                failedKafkaEventService.retryFailedEvent(event.getId());
+                failedKafkaEventService.retryFailedEventById(event.getId());
             } catch (Exception e) {
                 log.error("Scheduler retry failed for event {}",
-                        event.getTransactionReference());
+                        event.getEventType());
             }
         }
     }

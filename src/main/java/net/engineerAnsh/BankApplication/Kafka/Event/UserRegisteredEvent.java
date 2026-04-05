@@ -8,9 +8,15 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserRegisteredEvent {
+public class UserRegisteredEvent implements UserEvent {
 
     private String email;
     private String verificationToken;
     private LocalDateTime occurredAt;
+
+    @Override
+    public String getEventType() {
+        return "USER_REGISTERED";
+    }
+
 }

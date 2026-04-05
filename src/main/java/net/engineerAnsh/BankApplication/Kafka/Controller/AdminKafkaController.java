@@ -1,10 +1,7 @@
 package net.engineerAnsh.BankApplication.Kafka.Controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Kafka.Entity.FailedKafkaEvent;
-import net.engineerAnsh.BankApplication.Kafka.Enums.FailedEventStatus;
-import net.engineerAnsh.BankApplication.Kafka.Repository.FailedKafkaEventRepository;
+import net.engineerAnsh.BankApplication.Kafka.Dto.FailedKafkaEventResponse;
 import net.engineerAnsh.BankApplication.Kafka.Service.FailedKafkaEventService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,23 +15,22 @@ import java.util.List;
 public class AdminKafkaController {
 
     private final FailedKafkaEventService failedKafkaEventService;
-    private final FailedKafkaEventRepository failedKafkaEventRepository;
 
     @GetMapping("/get-failed-events")
-    public ResponseEntity<List<FailedKafkaEvent>> getFailedEvents() {
-        List<FailedKafkaEvent> events =
-                failedKafkaEventRepository.findByStatusNot(FailedEventStatus.RESOLVED);
-        return ResponseEntity.ok(events);
+    public ResponseEntity<List<FailedKafkaEventResponse>> getFailedEvents() {
+        List<FailedKafkaEventResponse> failedKafkaEvents =
+                failedKafkaEventService.findPendingFailedKafkaEvents();
+        return ResponseEntity.ok(failedKafkaEvents);
     }
 
-    @PostMapping("/retry/{id}")
-    public ResponseEntity<String> retryEvent(@PathVariable Long id) {
-        failedKafkaEventService.retryFailedEvent(id);
+    @PostMapping("/retry")
+    public ResponseEntity<String> retryEvent(@RequestParam String eventId) throws Exception {
+        failedKafkaEventService.retryFailedEventByEventId(eventId);
         return ResponseEntity.ok("Event retried successfully");
     }
 
     @PostMapping("/retry-all")
-    public ResponseEntity<String> retryAllEvents() throws JsonProcessingException {
+    public ResponseEntity<String> retryAllEvents() {
         failedKafkaEventService.retryAllFailedEvents();
         return ResponseEntity.ok("All failed events retried");
     }

@@ -274,8 +274,10 @@ public class TransactionService {
     ) throws JsonProcessingException {
 
         String txnReference = null;
-        // Handle BLOCK separately (needs txn creation)...
-        if (result.getDecision() == FraudDecision.BLOCK) {
+        // Handle BLOCK and FREEZE_ACCOUNT separately (needs txn creation)...
+        if (result.getDecision() == FraudDecision.BLOCK ||
+                result.getDecision() == FraudDecision.FREEZE_ACCOUNT)
+        {
             txnReference = createBlockTxn(
                     sourceAccount,
                     toAccount,
@@ -294,15 +296,12 @@ public class TransactionService {
         }
 
         switch (result.getDecision()) {
-            case FREEZE_ACCOUNT:
+            case FREEZE_ACCOUNT, BLOCK:
                 throw new FraudDetectedException(result.getReason());
 
             case SUSPICIOUS:
                 log.warn("⚠️ Suspicious txn: {}", result.getReason());
                 break;
-
-            case BLOCK:
-                throw new FraudDetectedException(result.getReason());
 
             case SAFE:
                 break;

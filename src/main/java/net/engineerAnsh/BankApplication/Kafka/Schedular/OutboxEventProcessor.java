@@ -23,12 +23,10 @@ public class OutboxEventProcessor {
 
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
-    private final UserLoginEventProducer loginEventProducer;
-    private final UserRegisteredEventProducer registeredEventProducer;
     private final TransactionEventProducer transactionEventProducer;
     private final KycEventProducer kycEventProducer;
     private final AccountEventProducer accountEventProducer;
-    private final FraudEventProducer fraudEventProducer;
+    private final UserEventProducer userEventProducer;
     private static final int MAX_RETRIES = 5;
 
     private void publishEvent(OutboxEvent event) throws JsonProcessingException {
@@ -39,7 +37,7 @@ public class OutboxEventProcessor {
                                 event.getPayload(),
                                 UserRegisteredEvent.class
                         );
-                registeredEventProducer.publishUserRegistrationEventSuccess(registeredEvent);
+                userEventProducer.publishUserRegisteredEvent(registeredEvent);
                 break;
 
             case USER_LOGIN:
@@ -48,7 +46,7 @@ public class OutboxEventProcessor {
                                 event.getPayload(),
                                 UserLoginEvent.class
                         );
-                loginEventProducer.publishUserLoginEventSuccess(loginEvent);
+                userEventProducer.publishUserLoginEvent(loginEvent);
                 break;
 
             case TRANSACTION_COMPLETED:
@@ -57,7 +55,7 @@ public class OutboxEventProcessor {
                                 event.getPayload(),
                                 TransactionCompletedEvent.class
                         );
-                transactionEventProducer.publishTransactionCompleted(txnEvent);
+                transactionEventProducer.publishTxnEvent(txnEvent);
                 break;
 
             case KYC_EVENT:
@@ -83,7 +81,7 @@ public class OutboxEventProcessor {
                         objectMapper.readValue(event.getPayload(),
                                 FraudDetectedEvent.class
                         );
-                fraudEventProducer.publishFraudEvent(fraudDetectedEvent);
+                transactionEventProducer.publishTxnEvent(fraudDetectedEvent);
                 break;
 
             default:
@@ -102,7 +100,7 @@ public class OutboxEventProcessor {
                 );
 
         if (events.isEmpty()) {
-            log.info("No kafka events are available in outbox table");
+            log.info("❌ No kafka events are available in outbox table");
             return;
         }
 

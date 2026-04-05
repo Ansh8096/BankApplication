@@ -1,39 +1,35 @@
-package net.engineerAnsh.BankApplication.Kafka.Consumer;
+package net.engineerAnsh.BankApplication.Kafka.EventHandlers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Kafka.Enums.FailedEventStatus;
-import net.engineerAnsh.BankApplication.Kafka.Event.TransactionSuccessEvent;
+import net.engineerAnsh.BankApplication.Kafka.Event.EventProcessedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Repository.FailedKafkaEventRepository;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
-public class TransactionSuccessConsumer {
+@Slf4j
+public class EventProcessedHandler implements TransactionEventHandler<EventProcessedEvent> {
 
     private final FailedKafkaEventRepository failedKafkaEventRepository;
 
-
-    @KafkaListener(
-            topics = "transaction.completed.success",
-            groupId = "transaction-success-group"
-    )
-    public void consumeDLQ(TransactionSuccessEvent event) {
-        log.info("Success ACK received for txn: {}", event.getTransactionReference());
+    @Override
+    public void handle(EventProcessedEvent event) {
+        log.info("Success ACK received for event: {}", event.getEventType());
         try {
-
             // After success, If this event was a failed event mark it as resolved event now in the DB...
             failedKafkaEventRepository.findByEventId(event.getEventId())
                     .ifPresent(failedEvent -> {
                         failedEvent.setStatus(FailedEventStatus.RESOLVED);
                         failedKafkaEventRepository.save(failedEvent);
-                        log.info("Event marked as RESOLVED: {}", event.getTransactionReference());
                     });
 
+            log.info("Event resolved: {} type: {}", event.getEventId(), event.getEventType());
+
         } catch (Exception e) {
-            log.error("Failed to serialize DLQ event", e);
+            log.error("Failed to resolve the event", e);
+            // not throwing error to avoid retries...
         }
     }
 }

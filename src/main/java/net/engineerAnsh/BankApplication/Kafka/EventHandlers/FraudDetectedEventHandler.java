@@ -1,24 +1,35 @@
-package net.engineerAnsh.BankApplication.Kafka.Consumer;
+package net.engineerAnsh.BankApplication.Kafka.EventHandlers;
 
+import com.fasterxml.jackson.annotation.JsonTypeName;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
-import net.engineerAnsh.BankApplication.Fraud.FraudDecision;
-import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
-import net.engineerAnsh.BankApplication.Services.AccountService;
 import net.engineerAnsh.BankApplication.Email.EmailTemplateService;
-import org.springframework.kafka.annotation.KafkaListener;
+import net.engineerAnsh.BankApplication.Fraud.FraudDecision;
+import net.engineerAnsh.BankApplication.Kafka.Builder.EventProcessedBuilder;
+import net.engineerAnsh.BankApplication.Kafka.Event.EventProcessedEvent;
+import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
+import net.engineerAnsh.BankApplication.Kafka.Event.TransactionEvent;
+import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
+import net.engineerAnsh.BankApplication.Services.AccountService;
 import org.springframework.stereotype.Service;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
-public class FraudEventConsumer {
+@Slf4j
+public class FraudDetectedEventHandler implements TransactionEventHandler<FraudDetectedEvent> {
 
     private final AccountService accountService;
     private final EmailServiceImpl emailService;
     private final EmailTemplateService emailTemplateService;
+    private final EventProcessedBuilder eventProcessedBuilder;
+    private final TransactionEventProducer transactionEventProducer;
 
+
+    private String getEventType(TransactionEvent event) {
+        JsonTypeName annotation = event.getClass().getAnnotation(JsonTypeName.class);
+        return annotation != null ? annotation.value() : "UNKNOWN";
+    }
 
     private String buildSubject(FraudDetectedEvent event) {
         return switch (event.getDecision()) {
@@ -45,18 +56,24 @@ public class FraudEventConsumer {
         emailService.sendHtmlEmail(event.getEmail(), subject, body);
     }
 
-    @KafkaListener(
-            topics = "fraud-events",
-            groupId = "fraud-consumer-group"
-    )
-    public void consume(FraudDetectedEvent event) {
+    @Override
+    public void handle(FraudDetectedEvent event) {
+        log.warn("🚨 Fraud event received: {}", event);
+        handleFraud(event);
+        log.info("Fraud event processed: {}", event.getEventId());
+
+        // Publishing a success event:
+        // We are using try catch here, because we don't want to trigger a retry because of this...
         try {
-            log.warn("🚨 Fraud event received: {}", event);
-            handleFraud(event);
+            EventProcessedEvent eventProcessedEvent = eventProcessedBuilder.buildProcessedEvent(event.getEventId(), getEventType(event));
+            transactionEventProducer.publishTxnEvent(eventProcessedEvent);
+            log.info("Successfully published an eventProcessedEvent: {}", event);
 
         } catch (Exception e) {
-            log.error("Failed to process fraud event", e);
+            log.error("Failed to publish an eventProcessedEvent: {}", event);
+
         }
+
     }
 
 }

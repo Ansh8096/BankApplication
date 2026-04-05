@@ -84,7 +84,7 @@ public class EmailTemplateService {
         context.setVariable("amount", CurrencyUtil.format(event.getAmount()).replaceAll("\\.00$", ""));
         context.setVariable("transactionType", event.getTransactionType());
         context.setVariable("transactionReference", event.getTransactionReference());
-        context.setVariable("time", formatDate(event.getTimestamp()));
+        context.setVariable("time", formatDate(event.getOccurredAt()));
         return templateEngine.process(templateName, context);
     }
 

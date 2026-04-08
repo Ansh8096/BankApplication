@@ -12,6 +12,7 @@ public class UserLoginEvent implements UserEvent{
     private String userName;
     private String email;
     private String ipAddress;
+    private String location;
     private String userAgent;
     private LocalDateTime occurredAt;
 

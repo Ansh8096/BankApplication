@@ -117,6 +117,7 @@ public class EmailTemplateService {
         Context context = new Context();
         context.setVariable("name", formatUserName(loginEvent.getUserName()));
         context.setVariable("ip", loginEvent.getIpAddress());
+        context.setVariable("location", loginEvent.getLocation());
         context.setVariable("device", loginEvent.getUserAgent());
         context.setVariable("time", formatDate(loginEvent.getOccurredAt()));
         return templateEngine.process("email/auth/login-alert", context);

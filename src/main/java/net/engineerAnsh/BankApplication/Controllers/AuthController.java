@@ -12,6 +12,7 @@ import net.engineerAnsh.BankApplication.Services.AuthService;
 import net.engineerAnsh.BankApplication.Services.RedisRateLimiterService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.net.URI;
 import java.util.Map;
 
@@ -45,12 +46,26 @@ public class AuthController {
 
         // Rate limiting...
         String email = request.getEmail();
-        String ip = httpRequest.getHeader("X-Forwarded-For"); // best after deployment...
+        String ip = httpRequest.getHeader("X-Forwarded-For");
 
-        if (ip != null && !ip.isEmpty()) {
+        String unknown = "unknown";
+        if (ip != null && !ip.isEmpty() && !unknown.equalsIgnoreCase(ip)) {
             ip = ip.split(",")[0].trim();
         } else {
+            ip = httpRequest.getHeader("Proxy-Client-IP");
+        }
+
+        if (ip == null || ip.isEmpty() || unknown.equalsIgnoreCase(ip)) {
+            ip = httpRequest.getHeader("WL-Proxy-Client-IP");
+        }
+
+        if (ip == null || ip.isEmpty() || unknown.equalsIgnoreCase(ip)) {
             ip = httpRequest.getRemoteAddr();
+        }
+
+        // Handle IPv6 localhost
+        if ("0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) {
+            ip = "127.0.0.1";
         }
 
         // Apply Rate Limiting...
@@ -92,12 +107,26 @@ public class AuthController {
             HttpServletRequest httpRequest) throws JsonProcessingException {
 
         String email = request.getEmail();
-        String ip = httpRequest.getHeader("X-Forwarded-For"); // best after deployment...
+        String ip = httpRequest.getHeader("X-Forwarded-For");
 
-        if (ip != null && !ip.isEmpty()) {
+        String unknown = "unknown";
+        if (ip != null && !ip.isEmpty() && !unknown.equalsIgnoreCase(ip)) {
             ip = ip.split(",")[0].trim();
         } else {
+            ip = httpRequest.getHeader("Proxy-Client-IP");
+        }
+
+        if (ip == null || ip.isEmpty() || unknown.equalsIgnoreCase(ip)) {
+            ip = httpRequest.getHeader("WL-Proxy-Client-IP");
+        }
+
+        if (ip == null || ip.isEmpty() || unknown.equalsIgnoreCase(ip)) {
             ip = httpRequest.getRemoteAddr();
+        }
+
+        // Handle IPv6 localhost
+        if ("0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) {
+            ip = "127.0.0.1";
         }
 
         // Rate Limiting...

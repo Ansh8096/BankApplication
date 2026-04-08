@@ -3,6 +3,7 @@ package net.engineerAnsh.BankApplication.Controllers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import net.engineerAnsh.BankApplication.Dto.Account.AccountResponse;
 import net.engineerAnsh.BankApplication.Dto.Account.CreateAccountDto;
 import net.engineerAnsh.BankApplication.Security.UserDetails.CustomUserDetails;
 import net.engineerAnsh.BankApplication.Services.AccountService;
@@ -39,8 +40,8 @@ public class AccountController {
     }
 
     @GetMapping("/get-account/{accountNumber}")
-    public ResponseEntity<?> getAccountByAccountNo(@AuthenticationPrincipal CustomUserDetails user,
-                                                   @PathVariable String accountNumber) throws AccessDeniedException {
+    public ResponseEntity<AccountResponse> getAccountByAccountNo(@AuthenticationPrincipal CustomUserDetails user,
+                                                                 @PathVariable String accountNumber) throws AccessDeniedException {
         return ResponseEntity.ok().body(accountService.getTheAccountByAccountNumber(user.getUsername(), accountNumber));
     }
 

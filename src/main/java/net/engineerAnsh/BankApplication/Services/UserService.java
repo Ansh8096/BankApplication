@@ -1,12 +1,12 @@
 package net.engineerAnsh.BankApplication.Services;
 
 import lombok.RequiredArgsConstructor;
+import net.engineerAnsh.BankApplication.Dto.Account.AccountResponse;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.Role;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.account.AccountStatus;
 import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
-import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.RoleRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
@@ -24,7 +24,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserService {
 
-    private final AccountRepository accountRepository;
+    private final AccountService accountService;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private static final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -105,9 +105,9 @@ public class UserService {
         return findUser(email);
     }
 
-    public List<Account> getAllAccountsOfUser() {
+    public List<AccountResponse> getAllAccountsOfUser() {
         String email = getUserEmail();
-        return accountRepository.findByUserEmailAndAccountStatusNot(email,AccountStatus.CLOSED); // it returns all the active accounts of user...
+        return accountService.getAllAccounts(email);
     }
 
     @PreAuthorize("hasRole('ADMIN')") // Even if someone bypasses the controller, service is protected...

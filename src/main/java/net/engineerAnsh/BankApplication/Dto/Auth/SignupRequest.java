@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import net.engineerAnsh.BankApplication.Validations.PasswordMatches;
-import org.hibernate.validator.constraints.Length;
 
 @Getter
 @Setter
@@ -29,13 +28,15 @@ public class SignupRequest {
     private Integer age;
 
     @NotBlank(message = "Phone cannot be empty")
-    @Length(min = 10, max = 13, message = "Phone no is invalid")
+    @Pattern(
+            regexp = "^[+]?[0-9]{10,13}$",
+            message = "Invalid phone number"
+    )
     private String phone;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters")
     @Pattern(
-            regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@$!%*?&]).*$",
+            regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@$!%*?&]).{8,}$",
             message = "Password must contain upper, lower, number and special character"
     )
     private String password;

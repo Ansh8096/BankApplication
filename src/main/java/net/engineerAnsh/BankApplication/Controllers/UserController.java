@@ -1,7 +1,7 @@
 package net.engineerAnsh.BankApplication.Controllers;
 
 import lombok.RequiredArgsConstructor;
-import net.engineerAnsh.BankApplication.Entity.Account;
+import net.engineerAnsh.BankApplication.Dto.Account.AccountResponse;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Services.UserService;
 import org.springframework.http.ResponseEntity;
@@ -42,8 +42,8 @@ public class UserController {
     }
 
     @GetMapping("/get-all-accounts")
-    public ResponseEntity<List<Account>> getAllAccountsOfTheUser() {
-        List<Account> allAccountsOfUser = userService.getAllAccountsOfUser();
+    public ResponseEntity<List<AccountResponse>> getAllAccountsOfTheUser() {
+        List<AccountResponse> allAccountsOfUser = userService.getAllAccountsOfUser();
         return ResponseEntity.ok().body(allAccountsOfUser);
     }
 

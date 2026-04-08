@@ -30,6 +30,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,7 @@ public class AuthService {
     private final UserLoginEventBuilder userLoginEventBuilder;
     private final UserRegisteredEventBuilder userRegisteredEventBuilder;
     private final OutboxEventService outboxEventService;
+    private final GeoLocationService geoLocationService;
     private static final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Value("${app.verification.cooldown-minutes}")
@@ -65,12 +67,27 @@ public class AuthService {
     @Value("${auth.login.max-attempts}")
     private int authLoginMaxAttempts;
 
+    private String findLocation(String ip) {
+        String location;
+        if ("127.0.0.1".equals(ip)) {
+            location = "Local Development";
+        } else {
+            try {
+                location = geoLocationService.getLocationFromIp(ip);
+            } catch (Exception e) {
+                log.warn("Failed to fetch location for IP: {}", ip);
+                location = "Unknown Location";
+            }
+        }
+        return location;
+    }
+
     private void buildAndSaveOutboxEvent(Object event, OutboxEventType eventType) throws JsonProcessingException {
         OutboxEvent outboxKycEvent = outboxEventService.buildOutboxEvent(event, eventType);
         outboxEventService.publishOutBoxEvent(outboxKycEvent);
     }
 
-    private void resetFailedAttempts(User user, String ip, String userAgent){
+    private void resetFailedAttempts(User user, String ip, String userAgent) {
         user.setFailedAttempts(0);
         user.setLockTime(null);
         user.setLastLoginIp(ip);
@@ -79,7 +96,7 @@ public class AuthService {
         user.setLastFailedAttempt(null);
     }
 
-    private User createNewUser(SignupRequest request){
+    private User createNewUser(SignupRequest request) {
 
         // making sure if the role exists in the role table or not...
         Role userRole = userService.findRoleByName("ROLE_USER"); // this will return Role if present, else Throw an exception...
@@ -99,7 +116,7 @@ public class AuthService {
         return newUser;
     }
 
-    private EmailVerificationToken generateToken(User user, String tokenValue){
+    private EmailVerificationToken generateToken(User user, String tokenValue) {
         return EmailVerificationToken.builder()
                 .token(tokenValue)
                 .user(user)
@@ -108,14 +125,14 @@ public class AuthService {
                 .build();
     }
 
-    private User findUser(String email){
+    private User findUser(String email) {
         // If two resend requests hit at the exact same millisecond, we prevent both from generating tokens by using 'findByEmailForUpdate()' query...
         return userRepository.findByEmailForUpdate(email)
                 .orElseThrow(() ->
                         new InvalidTokenException("User not found"));
     }
 
-    private void validateUser(User user, String email){
+    private void validateUser(User user, String email) {
         if (!user.getEmail().equals(email)) {
             throw new IllegalStateException("Email doesn't belong to the user");
         }
@@ -192,7 +209,7 @@ public class AuthService {
         if (user == null) throw new BadCredentialsException("Invalid credentials"); // very rare...
 
         // Reset failed attempts after successful login...
-        resetFailedAttempts(user,ip,userAgent);
+        resetFailedAttempts(user, ip, userAgent);
 
         // Extract user roles:
         List<String> roles = authenticatedUser.getAuthorities()
@@ -200,8 +217,12 @@ public class AuthService {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
+        // Extracting location...
+        String location = findLocation(ip);
+        log.info("Location of {}, is: {}", request.getEmail(), location);
+
         // Creating the login event...
-        UserLoginEvent loginEvent = userLoginEventBuilder.buildLoginEvent(user.getName(), request.getEmail(), ip, userAgent);
+        UserLoginEvent loginEvent = userLoginEventBuilder.buildLoginEvent(user.getName(), request.getEmail(), ip, userAgent, location);
 
         // Saving Outbox Event...
         buildAndSaveOutboxEvent(loginEvent, OutboxEventType.USER_LOGIN);
@@ -225,14 +246,14 @@ public class AuthService {
 
         // Generate Verification Token...
         String tokenValue = UUID.randomUUID().toString();
-        EmailVerificationToken token = generateToken(newUser,tokenValue);
+        EmailVerificationToken token = generateToken(newUser, tokenValue);
         tokenRepository.save(token);
 
         // Creating Signup Event...
         UserRegisteredEvent registrationEvent = userRegisteredEventBuilder.buildRegistrationEvent(request.getEmail(), tokenValue);
 
         // Saving Outbox Event...
-        buildAndSaveOutboxEvent(registrationEvent,OutboxEventType.USER_REGISTERED);
+        buildAndSaveOutboxEvent(registrationEvent, OutboxEventType.USER_REGISTERED);
     }
 
     @Transactional
@@ -273,7 +294,7 @@ public class AuthService {
         User user = findUser(email);
 
         // Apply required validations...
-        validateUser(user,email);
+        validateUser(user, email);
 
         // CoolDown Check : It will limit how often a user can request verification email...
         Optional<EmailVerificationToken> latestTokenOpt = tokenRepository
@@ -304,14 +325,14 @@ public class AuthService {
 
         // Generate new token...
         String newTokenValue = UUID.randomUUID().toString();
-        EmailVerificationToken newToken = generateToken(user,newTokenValue);
+        EmailVerificationToken newToken = generateToken(user, newTokenValue);
         tokenRepository.save(newToken);
 
         // Creating Signup Event...
         UserRegisteredEvent registrationEvent = userRegisteredEventBuilder.buildRegistrationEvent(email, newTokenValue);
 
         // Save outBox event...
-        buildAndSaveOutboxEvent(registrationEvent,OutboxEventType.USER_REGISTERED);
+        buildAndSaveOutboxEvent(registrationEvent, OutboxEventType.USER_REGISTERED);
     }
 }
 

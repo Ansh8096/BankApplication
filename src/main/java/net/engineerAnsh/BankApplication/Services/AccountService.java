@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.engineerAnsh.BankApplication.Dto.Account.AccountResponse;
 import net.engineerAnsh.BankApplication.Entity.Account;
 import net.engineerAnsh.BankApplication.Entity.OutboxEvent;
 import net.engineerAnsh.BankApplication.Entity.User;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -88,6 +90,18 @@ public class AccountService {
                     "User already has an active " + accountType + " account"
             );
         }
+    }
+
+    private AccountResponse mapToAccountResponse(Account account){
+        return new AccountResponse(
+                account.getAccountNumber(),
+                account.getIfscCode(),
+                account.getAccountType(),
+                account.getAccountStatus(),
+                account.getAccountCreatedAt(),
+                account.getAccountUpdatedAt(),
+                account.getAccountClosedAt()
+        );
     }
 
     private void kycCheck(KycStatus status) {
@@ -216,13 +230,19 @@ public class AccountService {
     }
 
     @Transactional
-    public Account getTheAccountByAccountNumber(String email, String accountNumber) throws AccessDeniedException {
-        return findNotClosedAccountAndValidate(email, accountNumber);
+    public AccountResponse getTheAccountByAccountNumber(String email, String accountNumber) throws AccessDeniedException {
+        return mapToAccountResponse(findNotClosedAccountAndValidate(email, accountNumber));
     }
 
     @Transactional
     public BigDecimal getTheAccountBalanceByAccountNumber(String email, String accountNumber) throws AccessDeniedException {
         Account savedAccount = findNotClosedAccountAndValidate(email, accountNumber);
         return ledgerService.calculateAccountBalance(savedAccount.getAccountNumber());
+    }
+
+    public List<AccountResponse> getAllAccounts(String email) {
+        return accountRepository
+                .findByUserEmailAndAccountStatusNot(email,AccountStatus.CLOSED)
+                .stream().map(this::mapToAccountResponse).toList();
     }
 }

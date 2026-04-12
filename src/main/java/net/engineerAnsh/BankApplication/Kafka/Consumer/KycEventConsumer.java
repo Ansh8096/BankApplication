@@ -2,8 +2,8 @@ package net.engineerAnsh.BankApplication.Kafka.Consumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
-import net.engineerAnsh.BankApplication.Email.EmailTemplateService;
+import net.engineerAnsh.BankApplication.services.notification.email.EmailServiceImpl;
+import net.engineerAnsh.BankApplication.services.notification.email.EmailTemplateService;
 import net.engineerAnsh.BankApplication.Entity.User;
 import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
 import net.engineerAnsh.BankApplication.Kafka.Enums.KycEventType;

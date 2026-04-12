@@ -3,15 +3,15 @@ package net.engineerAnsh.BankApplication.Kafka.EventHandlers;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
-import net.engineerAnsh.BankApplication.Email.EmailTemplateService;
+import net.engineerAnsh.BankApplication.services.notification.email.EmailServiceImpl;
+import net.engineerAnsh.BankApplication.services.notification.email.EmailTemplateService;
 import net.engineerAnsh.BankApplication.Fraud.FraudDecision;
 import net.engineerAnsh.BankApplication.Kafka.Builder.EventProcessedBuilder;
 import net.engineerAnsh.BankApplication.Kafka.Event.EventProcessedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.FraudDetectedEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.TransactionEvent;
 import net.engineerAnsh.BankApplication.Kafka.Producer.TransactionEventProducer;
-import net.engineerAnsh.BankApplication.Services.AccountService;
+import net.engineerAnsh.BankApplication.services.account.AccountService;
 import org.springframework.stereotype.Service;
 
 @Service

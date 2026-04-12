@@ -18,6 +18,8 @@ public interface UserRepository extends JpaRepository<User,Long> {
 
     Optional<User> findByEmailAndActiveTrue(String email);
 
+    Optional<User> findByPhoneNumber(String phoneNumber);
+
     Optional<User> findByUserIdAndActiveTrue(Long userId);
 
     @Query("SELECT u FROM User u WHERE u.active = true")
@@ -27,4 +29,6 @@ public interface UserRepository extends JpaRepository<User,Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.email = :email")
     Optional<User> findByEmailForUpdate(@Param("email") String email);
+
+
 }

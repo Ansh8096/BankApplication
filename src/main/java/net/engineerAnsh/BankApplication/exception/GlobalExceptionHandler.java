@@ -128,6 +128,38 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
                 .body(Map.of("error", ex.getMessage()));
     }
 
+    @ExceptionHandler(AlreadyVerifiedException.class)
+    public ResponseEntity<?> handleAlreadyVerifiedExceptionException(AlreadyVerifiedException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidOtpException.class)
+    public ResponseEntity<?> handleInvalidTokenExceptionException(InvalidOtpException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(OtpBlockedException.class)
+    public ResponseEntity<?> handleOtpBlockedExceptionException(OtpBlockedException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(OtpExpiredException.class)
+    public ResponseEntity<?> handleOtpExpiredExceptionException(OtpExpiredException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
 }
 
 

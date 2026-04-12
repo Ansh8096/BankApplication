@@ -94,10 +94,20 @@ public class OutboxSingleEventProcessor {
 
             case FRAUD_DETECTED:
                 FraudDetectedEvent fraudDetectedEvent =
-                        objectMapper.readValue(event.getPayload(),
+                        objectMapper.readValue(
+                                event.getPayload(),
                                 FraudDetectedEvent.class
                         );
                 transactionEventProducer.publishTxnEvent(fraudDetectedEvent);
+                break;
+
+            case OTP_NOTIFICATION:
+                OtpEvent otpEvent =
+                        objectMapper.readValue(
+                                event.getPayload(),
+                                OtpEvent.class
+                        );
+                userEventProducer.publishOtp(otpEvent);
                 break;
 
             default:

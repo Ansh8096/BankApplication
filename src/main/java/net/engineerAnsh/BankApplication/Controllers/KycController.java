@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.Kyc.KycStatusResponse;
 import net.engineerAnsh.BankApplication.Dto.Kyc.KycSubmissionRequest;
 import net.engineerAnsh.BankApplication.Security.UserDetails.CustomUserDetails;
-import net.engineerAnsh.BankApplication.Services.KycService;
+import net.engineerAnsh.BankApplication.services.kyc.KycService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;

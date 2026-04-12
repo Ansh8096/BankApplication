@@ -20,4 +20,28 @@ public class MaskingUtil {
         return email.substring(0, 2) + "****" + email.substring(at);
     }
 
+    public static String maskPhone(String phone) {
+
+        if (phone == null || phone.length() < 6) {
+            return "******";
+        }
+
+        // Handle +91 format
+        if (phone.startsWith("+")) {
+
+            String countryCode = phone.substring(0, phone.length() - 10);
+            String number = phone.substring(phone.length() - 10);
+
+            return countryCode + " " +
+                    number.substring(0, 2) +
+                    "******" +
+                    number.substring(8);
+        }
+
+        // Normal 10-digit number
+        return phone.substring(0, 2) +
+                "******" +
+                phone.substring(phone.length() - 2);
+    }
+
 }

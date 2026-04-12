@@ -2,8 +2,10 @@ package net.engineerAnsh.BankApplication.Kafka.Producer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.engineerAnsh.BankApplication.Kafka.Event.OtpEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
+import net.engineerAnsh.BankApplication.Utils.MaskingUtil;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,12 +20,17 @@ public class UserEventProducer {
 
     public void publishUserLoginEvent(UserLoginEvent event) {
         kafkaTemplate.send(TOPIC, event.getEmail(), event);
-        log.info("Published USER_LOGIN event for user: {}", event.getEmail());
+        log.info("Published USER_LOGIN event for user: {}", MaskingUtil.maskEmail(event.getEmail()));
     }
 
     public void publishUserRegisteredEvent(UserRegisteredEvent event) {
         kafkaTemplate.send(TOPIC, event.getEmail(), event);
-        log.info("Published USER_REGISTERED event for user: {}", event.getEmail());
+        log.info("Published USER_REGISTERED event for user: {}", MaskingUtil.maskEmail(event.getEmail()));
+    }
+
+    public void publishOtp(OtpEvent otpEvent) {
+        kafkaTemplate.send(TOPIC, otpEvent.getPhoneNumber(), otpEvent);
+        log.info("Published OTP event for number: {}", MaskingUtil.maskPhone(otpEvent.getPhoneNumber()));
     }
 
 }

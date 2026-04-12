@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import lombok.*;
 import net.engineerAnsh.BankApplication.Enum.kyc.KycStatus;
+import net.engineerAnsh.BankApplication.Enum.user.PhoneVerificationStatus;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
@@ -37,6 +38,9 @@ public class User {
 
     @Column(name = "phone_number", unique = true, nullable = false, length = 13)
     private String phoneNumber;
+
+    @Enumerated(EnumType.STRING)
+    private PhoneVerificationStatus phoneVerificationStatus;
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
@@ -98,6 +102,9 @@ public class User {
 
     @Column
     private String lastLoginIp;
+
+    @Column
+    private String lastLoginLocation;
 
     @Column
     private String lastLoginDevice;

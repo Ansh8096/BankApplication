@@ -8,11 +8,13 @@ import net.engineerAnsh.BankApplication.Dto.Auth.LoginRequest;
 import net.engineerAnsh.BankApplication.Dto.Auth.ResendVerificationRequest;
 import net.engineerAnsh.BankApplication.Dto.Auth.SignupRequest;
 import net.engineerAnsh.BankApplication.Dto.Auth.SignupResponse;
-import net.engineerAnsh.BankApplication.Services.AuthService;
-import net.engineerAnsh.BankApplication.Services.RedisRateLimiterService;
+import net.engineerAnsh.BankApplication.Dto.Otp.SendOtpRequest;
+import net.engineerAnsh.BankApplication.Dto.Otp.VerifyOtpRequest;
+import net.engineerAnsh.BankApplication.services.auth.AuthService;
+import net.engineerAnsh.BankApplication.services.auth.OtpService;
+import net.engineerAnsh.BankApplication.services.auth.RedisRateLimiterService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.net.URI;
 import java.util.Map;
 
@@ -23,6 +25,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RedisRateLimiterService redisRateLimiterService;
+    private final OtpService otpService;
 
     @GetMapping("/health-check")
     public String applicationStatus() {
@@ -102,7 +105,7 @@ public class AuthController {
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<?> resendVerification(
+    public ResponseEntity<?> resendVerificationEmail(
             @Valid @RequestBody ResendVerificationRequest request,
             HttpServletRequest httpRequest) throws JsonProcessingException {
 
@@ -146,4 +149,24 @@ public class AuthController {
                 "If your email is not verified, a verification link has been sent."
         );
     }
+
+    @PostMapping("/send-otp")
+    public ResponseEntity<String> sendOtp(@RequestBody SendOtpRequest request) throws JsonProcessingException {
+
+        otpService.generateAndSendOtp(request.getPhoneNumber());
+
+        return ResponseEntity.ok("OTP sent successfully");
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<String> verifyOtp(@RequestBody VerifyOtpRequest request) {
+
+        otpService.verifyOtpAndActivateUser(
+                request.getPhoneNumber(),
+                request.getOtp()
+        );
+
+        return ResponseEntity.ok("Phone number verified successfully");
+    }
+
 }

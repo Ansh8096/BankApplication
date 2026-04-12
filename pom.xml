@@ -140,6 +140,12 @@
             <version>20231013</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.twilio.sdk</groupId>
+            <artifactId>twilio</artifactId>
+            <version>9.14.0</version>
+        </dependency>
+
     </dependencies>
 
 	<build>

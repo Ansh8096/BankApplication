@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.engineerAnsh.BankApplication.Entity.StatementJob;
 import net.engineerAnsh.BankApplication.Enum.statement.StatementJobStatus;
 import net.engineerAnsh.BankApplication.Repository.StatementJobRepository;
-import net.engineerAnsh.BankApplication.Services.StatementJobService;
+import net.engineerAnsh.BankApplication.services.statement.StatementJobService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import java.util.List;

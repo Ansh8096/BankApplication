@@ -2,9 +2,9 @@ package net.engineerAnsh.BankApplication.Kafka.Consumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
+import net.engineerAnsh.BankApplication.services.notification.email.EmailServiceImpl;
 import net.engineerAnsh.BankApplication.Kafka.Event.AccountNotificationEvent;
-import net.engineerAnsh.BankApplication.Email.EmailTemplateService;
+import net.engineerAnsh.BankApplication.services.notification.email.EmailTemplateService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 

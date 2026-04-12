@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.Account.AccountResponse;
 import net.engineerAnsh.BankApplication.Dto.Account.CreateAccountDto;
 import net.engineerAnsh.BankApplication.Security.UserDetails.CustomUserDetails;
-import net.engineerAnsh.BankApplication.Services.AccountService;
+import net.engineerAnsh.BankApplication.services.account.AccountService;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

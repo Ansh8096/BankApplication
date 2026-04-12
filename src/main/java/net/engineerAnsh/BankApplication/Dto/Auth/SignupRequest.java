@@ -29,8 +29,8 @@ public class SignupRequest {
 
     @NotBlank(message = "Phone cannot be empty")
     @Pattern(
-            regexp = "^[+]?[0-9]{10,13}$",
-            message = "Invalid phone number"
+            regexp = "^(\\+91)?[6-9][0-9]{9}$",
+            message = "Invalid Indian phone number"
     )
     private String phone;
 

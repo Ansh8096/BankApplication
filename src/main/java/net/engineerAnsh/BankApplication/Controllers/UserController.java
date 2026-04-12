@@ -3,7 +3,7 @@ package net.engineerAnsh.BankApplication.Controllers;
 import lombok.RequiredArgsConstructor;
 import net.engineerAnsh.BankApplication.Dto.Account.AccountResponse;
 import net.engineerAnsh.BankApplication.Entity.User;
-import net.engineerAnsh.BankApplication.Services.UserService;
+import net.engineerAnsh.BankApplication.services.user.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

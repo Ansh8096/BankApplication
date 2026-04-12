@@ -2,9 +2,12 @@ package net.engineerAnsh.BankApplication.Kafka.Consumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.engineerAnsh.BankApplication.Email.EmailServiceImpl;
+import net.engineerAnsh.BankApplication.services.notification.email.EmailServiceImpl;
+import net.engineerAnsh.BankApplication.Kafka.Event.OtpEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserLoginEvent;
 import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
+import net.engineerAnsh.BankApplication.services.notification.NotificationService;
+import net.engineerAnsh.BankApplication.Utils.MaskingUtil;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -15,18 +18,19 @@ import org.springframework.stereotype.Service;
 public class UserEventConsumer {
 
     private final EmailServiceImpl emailService;
+    private final NotificationService notificationService;
 
     @KafkaListener(
             topics = "user-events",
             groupId = "email-service-group"
     )
-    public void handleUserEvents(ConsumerRecord<String,Object> consumerRecord) {
+    public void handleUserEvents(ConsumerRecord<String, Object> consumerRecord) {
 
         Object event = consumerRecord.value(); // this is the actual event...
         try {
             if (event instanceof UserRegisteredEvent regEvent) {
 
-                log.info("Processing USER_REGISTERED for: {}", regEvent.getEmail());
+                log.info("Processing USER_REGISTERED for: {}", MaskingUtil.maskEmail(regEvent.getEmail()));
 
                 emailService.sendVerificationEmail(
                         regEvent.getEmail(),
@@ -35,9 +39,15 @@ public class UserEventConsumer {
 
             } else if (event instanceof UserLoginEvent loginEvent) {
 
-                log.info("Processing USER_LOGIN for: {}", loginEvent.getEmail());
+                log.info("Processing USER_LOGIN for: {}", MaskingUtil.maskEmail(loginEvent.getEmail()));
 
                 emailService.sendLoginAlertEmail(loginEvent);
+
+            } else if (event instanceof OtpEvent otpEvent) {
+
+                log.info("Processing OTP_EVENT for: {}", MaskingUtil.maskPhone(otpEvent.getPhoneNumber()));
+
+                notificationService.sendOtp(otpEvent.getPhoneNumber(), otpEvent.getOtpId());
 
             } else {
                 log.warn("Unknown event type received: {}", event.getClass());

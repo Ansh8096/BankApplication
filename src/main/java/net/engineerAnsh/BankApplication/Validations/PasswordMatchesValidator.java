@@ -2,24 +2,27 @@ package net.engineerAnsh.BankApplication.Validations;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import net.engineerAnsh.BankApplication.Dto.Auth.SignupRequest;
 
 // This validator will validate SignupRequest when @PasswordMatches is used...
 public class PasswordMatchesValidator
-        implements ConstraintValidator<PasswordMatches, SignupRequest> { // 'PasswordMatches' → The annotation, 'SignupRequest' → The type being validated
+        implements ConstraintValidator<PasswordMatches, PasswordMatchable> { // 'PasswordMatches' → The annotation, 'SignupRequest' → The type being validated
 
     // This method runs automatically during validation.
     @Override
-    public boolean isValid(SignupRequest request,
+    public boolean isValid(PasswordMatchable request,
                            ConstraintValidatorContext context) {
 
         // If either is null → invalid...
-        if (request.getPassword() == null ||
-                request.getConfirmPassword() == null) {
+        if (request == null) return true;
+
+        // If both match → true, If not → false.
+        String password = request.getPassword();
+        String confirm = request.getConfirmPassword();
+
+        if(password ==null||confirm ==null){
             return false;
         }
 
-        // If both match → true, If not → false.
-        return request.getPassword().equals(request.getConfirmPassword());
-    }
+        return password.equals(confirm);
+}
 }

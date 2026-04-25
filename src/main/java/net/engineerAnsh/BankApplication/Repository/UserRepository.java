@@ -14,7 +14,9 @@ public interface UserRepository extends JpaRepository<User,Long> {
 
     List<User> findByRoles_NameAndKycStatus(String roleName, KycStatus kycStatus);
 
-    boolean existsByEmail(String email);
+    boolean existsByEmailAndActiveTrueAndDeletedAtIsNull(String email);
+
+    boolean existsByPhoneNumberAndActiveTrueAndDeletedAtIsNull(String email);
 
     Optional<User> findByEmailAndActiveTrue(String email);
 

@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.exception;
+package net.engineerAnsh.BankApplication.exception.exceptionHandler;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

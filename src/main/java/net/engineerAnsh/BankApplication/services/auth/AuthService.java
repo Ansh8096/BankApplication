@@ -19,9 +19,9 @@ import net.engineerAnsh.BankApplication.Kafka.Event.UserRegisteredEvent;
 import net.engineerAnsh.BankApplication.Repository.EmailVerificationTokenRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import net.engineerAnsh.BankApplication.Security.Jwt.JwtUtils;
-import net.engineerAnsh.BankApplication.exception.InvalidTokenException;
-import net.engineerAnsh.BankApplication.exception.TokenExpiredException;
-import net.engineerAnsh.BankApplication.exception.TooManyRequestsException;
+import net.engineerAnsh.BankApplication.exception.exceptions.InvalidTokenException;
+import net.engineerAnsh.BankApplication.exception.exceptions.TokenExpiredException;
+import net.engineerAnsh.BankApplication.exception.exceptions.TooManyRequestsException;
 import net.engineerAnsh.BankApplication.services.geo.GeoLocationService;
 import net.engineerAnsh.BankApplication.services.outbox.OutboxEventService;
 import net.engineerAnsh.BankApplication.services.user.UserService;
@@ -246,7 +246,7 @@ public class AuthService {
     @Transactional
     public void saveNewUser(SignupRequest request) throws JsonProcessingException {
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmailAndActiveTrueAndDeletedAtIsNull(request.getEmail())) {
             throw new IllegalArgumentException("Email already registered");
         }
 

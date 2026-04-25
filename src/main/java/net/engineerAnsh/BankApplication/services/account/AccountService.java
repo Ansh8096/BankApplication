@@ -18,7 +18,7 @@ import net.engineerAnsh.BankApplication.Kafka.Builder.AccountEventBuilder;
 import net.engineerAnsh.BankApplication.Repository.AccountRepository;
 import net.engineerAnsh.BankApplication.Repository.UserRepository;
 import net.engineerAnsh.BankApplication.Utils.AccountNumberGenerator;
-import net.engineerAnsh.BankApplication.exception.KycNotVerifiedException;
+import net.engineerAnsh.BankApplication.exception.exceptions.KycNotVerifiedException;
 import net.engineerAnsh.BankApplication.services.outbox.OutboxEventService;
 import org.apache.coyote.BadRequestException;
 import org.springframework.security.access.prepost.PreAuthorize;

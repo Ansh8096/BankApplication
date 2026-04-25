@@ -1,4 +1,4 @@
-package net.engineerAnsh.BankApplication.exception;
+package net.engineerAnsh.BankApplication.exception.exceptions;
 
 public class TooManyRequestsException extends RuntimeException {
 

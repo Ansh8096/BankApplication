@@ -22,7 +22,7 @@ public class FailedEventRetrySchedular {
         List<FailedKafkaEvent> failedEvents = failedKafkaEventService.findAllFailedEvents();
 
         if (failedEvents.isEmpty()) {
-            log.info("❌ No failed KAFKA events are available...");
+            log.info("No failed KAFKA events are available...");
             return;
         }
 

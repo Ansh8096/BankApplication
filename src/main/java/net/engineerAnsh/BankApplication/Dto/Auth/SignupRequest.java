@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import net.engineerAnsh.BankApplication.Validations.PasswordMatchable;
 import net.engineerAnsh.BankApplication.Validations.PasswordMatches;
 
 @Getter
@@ -12,7 +13,7 @@ import net.engineerAnsh.BankApplication.Validations.PasswordMatches;
 @AllArgsConstructor
 @NoArgsConstructor
 @PasswordMatches // custom validation annotation.
-public class SignupRequest {
+public class SignupRequest implements PasswordMatchable {
 
     @NotBlank(message = "Full name is required")
     @Size(min = 3, max = 50)

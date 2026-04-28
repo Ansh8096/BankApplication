@@ -1,0 +1,163 @@
+serr:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: ${SPRING_APP_NAME:BankApplication}
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+  datasource:
+    url: ${SQL_URL}
+    username: ${SQL_USERNAME}
+    password: ${SQL_PASSWORD}
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE}
+      minimum-idle: ${HIKARI_MIN_IDLE}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT}
+      max-lifetime: ${HIKARI_MAX_LIFETIME}
+      connection-timeout: ${HIKARI_CONNECTION_TIMEOUT}
+
+  jpa:
+    show-sql: ${JPA_SHOW_SQL} # it shows every sql query on console
+    generate-ddl: ${JPA_GENERATE_DDL}
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    properties:
+      hibernate:
+        dialect: ${HIBERNATE_DIALECT}
+
+
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH}
+          starttls:
+            enable: ${MAIL_STARTTLS_ENABLE}
+
+  # Kafka Properties:--
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVER}
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM}
+      sasl.jaas.config: >
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username=${KAFKA_USERNAME}
+        password=${KAFKA_PASSWORD};
+      ssl.truststore.type: ${KAFKA_TRUSTSTORE_TYPE}
+      ssl.truststore.location: ${KAFKA_TRUSTSTORE_LOCATION}
+
+    producer:
+      key-serializer: ${KAFKA_PRODUCER_KEY_SERIALIZER}
+      value-serializer: ${KAFKA_PRODUCER_VALUE_SERIALIZER}
+
+    consumer:
+      auto-offset-reset: ${KAFKA_CONSUMER_AUTO_OFFSET_RESET} # (latest - read only new messages or earliest - Read from beginning of topic)
+      key-deserializer: ${KAFKA_CONSUMER_KEY_DESERIALIZER}
+      value-deserializer: ${KAFKA_CONSUMER_VALUE_DESERIALIZER}
+      properties:
+        spring:
+          json:
+            value:
+              default:
+                type: ${KAFKA_JSON_DEFAULT_TYPE}
+            trusted:
+              packages: ${KAFKA_TRUSTED_PACKAGES} # it tells us consumers which packages is trusted for it to consume...
+
+# per txn limit
+limit:
+  deposit:
+    daily: ${LIMIT_DEPOSIT_DAILY}
+    perTxn: ${LIMIT_DEPOSIT_PER_TXN}
+  withdraw:
+    daily: ${LIMIT_WITHDRAW_DAILY}
+    perTxn: ${LIMIT_WITHDRAW_PER_TXN}
+  transfer:
+    daily: ${LIMIT_TRANSFER_DAILY}
+    perTxn: ${LIMIT_TRANSFER_PER_TXN}
+
+jwt:
+  secret:
+    key: ${JWT_SECRET_KEY:test_secret_key}}
+  token:
+    time: ${JWT_TOKEN_TIME:3600}
+
+logging:
+  level:
+    net:
+      engineerAnsh:
+          BankApplication: ${LOG_LEVEL:INFO} # default INFO
+
+app:
+  kafka:
+    retry-interval-ms: ${KAFKA_RETRY_INTERVAL}
+    cleanup:
+      cron: "${APP_CLEANUP_CRON}"
+  base:
+    url: ${APP_BASE_URL:http://localhost:8080}
+  verification:
+    cooldown-minutes: ${VERIFICATION_COOLDOWN}
+    max-resend-per-hour: ${VERIFICATION_MAX_RESEND}
+    resend-window-hours: ${VERIFICATION_WINDOW}
+
+statement:
+  max-retries: ${STATEMENT_MAX_RETRIES}
+
+auth:
+  lock-duration-minutes: ${AUTH_LOCK_DURATION}
+  login:
+    max-attempts: ${AUTH_MAX_ATTEMPTS}
+
+outbox:
+  cleanup:
+    cron: "${OUTBOX_CLEANUP_CRON}"
+  poll:
+    interval: ${OUTBOX_POLL_INTERVAL}
+  max-retries: ${OUTBOX_MAX_RETRIES}
+
+fraud:
+  velocity-limits:
+    TRANSFER: ${FRAUD_TRANSFER_LIMIT}
+    WITHDRAW: ${FRAUD_WITHDRAW_LIMIT}
+    DEPOSIT: ${FRAUD_DEPOSIT_LIMIT}
+  large-transaction-threshold: ${FRAUD_LARGE_TXN}
+  multi-account-transfer-max-receivers: ${FRAUD_MULTI_RECEIVERS}
+  multi-account-transfer-time-window: ${FRAUD_TIME_WINDOW}
+
+geo:
+  ip:
+    token: ${GEO_IP_TOKEN}
+
+redis:
+  otp:
+    ttl-seconds: ${OTP_TTL}
+    max-attempts: ${OTP_MAX_ATTEMPTS}
+    attempt-window-seconds: ${OTP_ATTEMPT_WINDOW}
+  auth:
+    rate-limit:
+      max-requests: ${RATE_LIMIT_MAX_REQUESTS}
+      window-seconds: ${RATE_LIMIT_WINDOW}
+
+
+otp:
+  message-template: ${OTP_MESSAGE_TEMPLATE}
+
+twilio:
+  account-sid: ${ACCOUNT_SID}
+  auth-token: ${AUTH_TOKEN}
+  phone-number: ${TWILIO_NUMBER}
+
+springdoc:
+  api-docs:
+    path: ${SPRINGDOC_API_PATH}
+  swagger-ui:
+    path: ${SPRINGDOC_SWAGGER_PATH}
+    operationsSorter: ${SPRINGDOC_OP_SORTER}
+    tagsSorter: ${SPRINGDOC_TAG_SORTER}

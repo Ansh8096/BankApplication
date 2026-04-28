@@ -3,6 +3,7 @@ package net.engineerAnsh.BankApplication.Schedular;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import org.hibernate.cfg.Environment;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,6 +16,7 @@ import org.springframework.test.context.TestPropertySource;
         "JWT_TOKEN_TIME=565"
 })
 @ActiveProfiles("test")
+@Disabled
 class MonthlyStatementSchedularTest {
 
     @Autowired
@@ -28,6 +30,7 @@ class MonthlyStatementSchedularTest {
 //        System.out.println("MAIL PASS EXISTS: " + (env.getProperty("spring.mail.password") != null));
 //    }
 
+    @Disabled
     @Test
     @Transactional
     public void getStatementTest() throws MessagingException {

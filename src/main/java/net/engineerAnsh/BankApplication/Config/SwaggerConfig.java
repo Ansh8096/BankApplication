@@ -23,9 +23,9 @@ public class SwaggerConfig {
                         .description("API documentation for Bank Of Ansh")
                 )
                 .servers(List.of(
-                        new Server().url("http://localhost:8085").description("Local Server"),
-                        new Server().url("https:prod-server.com").description("Production Server"))
-                ).addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
+                        new Server().url(System.getenv().getOrDefault("APP_BASE_URL", "http://localhost:8080"))
+                                .description("Active Server")
+                )).addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components().addSecuritySchemes("bearerAuth",
                         new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)

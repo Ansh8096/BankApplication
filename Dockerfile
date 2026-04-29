@@ -23,6 +23,9 @@ WORKDIR /app
 # Copy jar from build stage
 COPY --from=build /app/target/*.jar app.jar
 
+# Copy Kafka SSL certificate into container
+COPY src/main/resources/kafka/ca.pem /app/ca.pem
+
 # Render provides PORT dynamically
 ENV PORT=8080
 

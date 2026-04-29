@@ -1,5 +1,5 @@
 server:
-  port: ${PORT:8085}
+  port: ${PORT:8080}
 
 spring:
   application:
@@ -52,7 +52,7 @@ spring:
         username=${KAFKA_USERNAME}
         password=${KAFKA_PASSWORD};
       ssl.truststore.type: ${KAFKA_TRUSTSTORE_TYPE}
-      ssl.truststore.location: ${KAFKA_TRUSTSTORE_LOCATION}
+      ssl.truststore.location: ${KAFKA_TRUSTSTORE_LOCATION:/app/ca.pem}
 
     producer:
       key-serializer: ${KAFKA_PRODUCER_KEY_SERIALIZER}

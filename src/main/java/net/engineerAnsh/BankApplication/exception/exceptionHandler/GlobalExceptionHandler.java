@@ -175,7 +175,7 @@ public class GlobalExceptionHandler { // this helps us to avoid writing the try-
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobal(Exception ex) {
 
-        log.error("Unhandled exception occurred", ex);
+        log.error("Unhandled exception occurred: {}", ex.getMessage());
 
         return buildError(
                 "Something went wrong. Please try again later.",
